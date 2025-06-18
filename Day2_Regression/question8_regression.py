@@ -1,5 +1,3 @@
-# Auto Dataset Simple Linear Regression Analysis - FIXED VERSION
-# Exercise 8: mpg vs horsepower relationship
 
 import pandas as pd
 import numpy as np
@@ -13,9 +11,7 @@ warnings.filterwarnings('ignore')
 print("🚗 Auto Dataset Simple Linear Regression Analysis")
 print("=" * 60)
 
-# ============================================================================
-# Load Auto Dataset - FIXED DATA GENERATION
-# ============================================================================
+
 print("\n📁 Loading Auto dataset...")
 
 try:
@@ -197,9 +193,7 @@ except Exception as e:
     print(f"❌ Error in analysis: {e}")
     print("This usually means the data has no variation or model fitting failed")
 
-# ============================================================================
-# Part (b): Scatter plot with regression line
-# ============================================================================
+
 print(f"\n" + "=" * 60)
 print("(b) SCATTER PLOT WITH REGRESSION LINE")
 print("=" * 60)
@@ -243,14 +237,12 @@ plt.show()
 
 print(f"✅ Scatter plot with regression line created!")
 
-# ============================================================================
-# Part (c): Diagnostic plots
-# ============================================================================
+
 print(f"\n" + "=" * 60)
 print("(c) DIAGNOSTIC PLOTS")
 print("=" * 60)
 
-# Calculate residuals and fitted values
+
 fitted_values = results.fittedvalues
 residuals = results.resid
 standardized_residuals = residuals / np.sqrt(results.mse_resid)
