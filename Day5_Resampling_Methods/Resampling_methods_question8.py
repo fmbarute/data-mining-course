@@ -1,165 +1,85 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import cross_val_score
-from statsmodels.regression.linear_model import OLS
-from statsmodels.tools import add_constant
 import statsmodels.api as sm
-from tqdm import tqdm
-
-# Set random seed for reproducibility
-np.random.seed(42)
-
-# (a) Generate predictor X and noise vector ϵ
-n = 100
-X = np.random.normal(size=n)
-epsilon = np.random.normal(size=n)
-
-# (b) Generate response Y with cubic relationship
-beta0, beta1, beta2, beta3 = 2, 1, -0.5, 0.1
-Y = beta0 + beta1 * X + beta2 * (X ** 2) + beta3 * (X ** 3) + epsilon
-
-# Create polynomial features up to X^10
-poly = PolynomialFeatures(degree=10, include_bias=False)
-X_poly = poly.fit_transform(X.reshape(-1, 1))
-feature_names = [f'X^{i + 1}' for i in range(10)]
 
 
-# (c) Forward stepwise selection with Cp (equivalent to AIC in statsmodels)
-def forward_stepwise(X, y, feature_names):
-    included = []
-    best_aic = np.inf
-    best_model = None
-    results = []
+np.random.seed(1)
+X = np.sort(np.random.randn(100))
+y = X - 2 * X ** 2 + np.random.randn(100)  # True model: y = X - 2X² + ϵ
 
-    while len(included) < X.shape[1]:
-        remaining = [f for f in range(X.shape[1]) if f not in included]
-        aic_candidates = []
+# Create DataFrame
+df = pd.DataFrame({'y': y, 'x': X})
 
-        for new in remaining:
-            current = included + [new]
-            X_current = X[:, current]
-            model = OLS(y, add_constant(X_current)).fit()
-            aic_candidates.append((new, model.aic))
+# 2. Data Visualization
 
-        # Select the feature that gives lowest AIC
-        new, aic = min(aic_candidates, key=lambda x: x[1])
-
-        if aic < best_aic:
-            included.append(new)
-            best_aic = aic
-            best_model = OLS(y, add_constant(X[:, included])).fit()
-            results.append({
-                'num_features': len(included),
-                'features': [feature_names[i] for i in included],
-                'AIC': aic,
-                'coefficients': best_model.params[1:],  # exclude intercept
-                'intercept': best_model.params[0]
-            })
-        else:
-            break
-
-    return results
-
-
-forward_results = forward_stepwise(X_poly, Y, feature_names)
-best_forward = forward_results[-1]
-
-print("\n(c) Forward Stepwise Results:")
-print(f"Selected features: {best_forward['features']}")
-print(f"Intercept: {best_forward['intercept']:.4f}")
-for f, coef in zip(best_forward['features'], best_forward['coefficients']):
-    print(f"{f}: {coef:.4f}")
-
-
-# (d) Backward stepwise selection
-def backward_stepwise(X, y, feature_names):
-    included = list(range(X.shape[1]))
-    current_aic = OLS(y, add_constant(X)).fit().aic
-    results = []
-
-    while len(included) > 1:
-        aic_candidates = []
-
-        for remove in included:
-            current = [f for f in included if f != remove]
-            X_current = X[:, current]
-            model = OLS(y, add_constant(X_current)).fit()
-            aic_candidates.append((remove, model.aic))
-
-        # Select the removal that gives lowest AIC
-        remove, aic = min(aic_candidates, key=lambda x: x[1])
-
-        if aic < current_aic:
-            included.remove(remove)
-            current_aic = aic
-            best_model = OLS(y, add_constant(X[:, included])).fit()
-            results.append({
-                'num_features': len(included),
-                'features': [feature_names[i] for i in included],
-                'AIC': aic,
-                'coefficients': best_model.params[1:],
-                'intercept': best_model.params[0]
-            })
-        else:
-            break
-
-    return results
-
-
-backward_results = backward_stepwise(X_poly, Y, feature_names)
-best_backward = backward_results[-1]
-
-print("\n(d) Backward Stepwise Results:")
-print(f"Selected features: {best_backward['features']}")
-print(f"Intercept: {best_backward['intercept']:.4f}")
-for f, coef in zip(best_backward['features'], best_backward['coefficients']):
-    print(f"{f}: {coef:.4f}")
-
-# (e) Lasso with cross-validation
-lasso = LassoCV(cv=5, alphas=np.logspace(-4, 0, 100), random_state=42)
-lasso.fit(X_poly, Y)
-
-# Plot cross-validation error
 plt.figure(figsize=(10, 6))
-plt.semilogx(lasso.alphas_, lasso.mse_path_.mean(axis=1), 'b-')
-plt.axvline(lasso.alpha_, color='red', linestyle='--')
-plt.xlabel('Lambda (α)')
-plt.ylabel('Mean squared error')
-plt.title('Lasso Cross-Validation Error')
+ax = sns.scatterplot(x=X, y=y, alpha=0.7, label='Observed Data')
+ax.plot(X, X - 2 * X ** 2, color='red', label='True Population Line')
+ax.set_xlabel('X')
+ax.set_ylabel('y')
+ax.set_title('Data and True Relationship')
+ax.grid()
+ax.legend()
 plt.show()
 
-print("\n(e) Lasso Results:")
-print(f"Optimal lambda: {lasso.alpha_:.4f}")
-print(f"Intercept: {lasso.intercept_:.4f}")
-for i, coef in enumerate(lasso.coef_):
-    if abs(coef) > 1e-4:  # Only show non-zero coefficients
-        print(f"X^{i + 1}: {coef:.4f}")
 
-# (f) New response with only X^7 term
-beta0_new, beta7 = 1, 2
-Y_new = beta0_new + beta7 * (X ** 7) + np.random.normal(size=n)
+# 3. LOOCV Implementation
 
-# Forward stepwise on new data
-forward_results_new = forward_stepwise(X_poly, Y_new, feature_names)
-best_forward_new = forward_results_new[-1]
+def poly_loocv(data, degree):
+    poly = PolynomialFeatures(degree=degree, include_bias=False)
+    X_poly = poly.fit_transform(data['x'].values.reshape(-1, 1))
+    lm = LinearRegression()
 
-print("\n(f) Forward Stepwise with X^7 only model:")
-print(f"Selected features: {best_forward_new['features']}")
-print(f"Intercept: {best_forward_new['intercept']:.4f}")
-for f, coef in zip(best_forward_new['features'], best_forward_new['coefficients']):
-    print(f"{f}: {coef:.4f}")
+    mse = -cross_val_score(lm, X_poly, data['y'],
+                           scoring='neg_mean_squared_error',
+                           cv=len(data)).mean()
+    return mse
 
-# Lasso on new data
-lasso_new = LassoCV(cv=5, alphas=np.logspace(-4, 0, 100), random_state=42)
-lasso_new.fit(X_poly, Y_new)
 
-print("\nLasso with X^7 only model:")
-print(f"Optimal lambda: {lasso_new.alpha_:.4f}")
-print(f"Intercept: {lasso_new.intercept_:.4f}")
-for i, coef in enumerate(lasso_new.coef_):
-    if abs(coef) > 1e-4:
-        print(f"X^{i + 1}: {coef:.4f}")
+# Compute LOOCV errors
+degrees = range(1, 5)
+loocv_results = [poly_loocv(df, deg) for deg in degrees]
+
+# Plot LOOCV results
+plt.figure(figsize=(8, 5))
+plt.plot(degrees, loocv_results, marker='o')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('LOOCV Error (MSE)')
+plt.title('LOOCV Error vs. Polynomial Degree')
+plt.grid()
+plt.show()
+
+
+# 4. Statistical Significance
+
+# (Add polynomial terms to DataFrame)
+for deg in range(2, 5):
+    df[f'x_{deg}'] = df['x'] ** deg
+
+
+def stat_significance(df, degree):
+    features = ['const'] + [f'x_{d}' for d in range(1, degree + 1)]
+    X = sm.add_constant(df[[f'x_{d}' for d in range(1, degree + 1)]])
+    y = df['y']
+    model = sm.OLS(y, X).fit()
+
+    print(f"\n{'=' * 40}")
+    print(f"Degree {degree} Regression Results")
+    print('=' * 40)
+    print(model.summary().tables[1])
+    print(f"AIC: {model.aic:.2f}")
+
+
+# Test degrees 1-4
+for i in range(1, 5):
+    stat_significance(df, i)
+
+
+print("\n\n=== Final Analysis ===")
+print(f"Best model by LOOCV: Degree {np.argmin(loocv_results) + 1}")
+print("Note: Degree 2 matches the true data-generating process (y = X - 2X² + ϵ)")
