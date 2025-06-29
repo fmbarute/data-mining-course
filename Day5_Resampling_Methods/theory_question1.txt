@@ -1,0 +1,781 @@
+Exercise 1: Deriving the Optimal α for Variance Minimization
+Problem Statement:
+We are given two random variables,
+X
+X and
+Y
+Y, and we form a new weighted combination:
+
+Z
+=
+α
+X
++
+(
+1
+−
+α
+)
+Y
+Z=αX+(1−α)Y
+where
+α
+∈
+R
+α∈R is a weight. Our goal is to find the optimal
+α
+α that minimizes the variance of
+Z
+Z,
+Var
+(
+Z
+)
+Var(Z).
+
+Assumptions:
+Var
+(
+X
+)
+=
+σ
+X
+2
+Var(X)=σ
+X
+2
+​
+ ,
+Var
+(
+Y
+)
+=
+σ
+Y
+2
+Var(Y)=σ
+Y
+2
+​
+ , and
+Cov
+(
+X
+,
+Y
+)
+=
+σ
+X
+Y
+Cov(X,Y)=σ
+XY
+​
+ .
+
+All variances and the covariance are known and finite.
+
+Step 1: Express
+Var
+(
+Z
+)
+Var(Z) in terms of
+α
+α:
+The variance of
+Z
+Z is given by:
+
+Var
+(
+Z
+)
+=
+Var
+(
+α
+X
++
+(
+1
+−
+α
+)
+Y
+)
+Var(Z)=Var(αX+(1−α)Y)
+Using the properties of variance for linear combinations:
+
+Var
+(
+Z
+)
+=
+α
+2
+Var
+(
+X
+)
++
+(
+1
+−
+α
+)
+2
+Var
+(
+Y
+)
++
+2
+α
+(
+1
+−
+α
+)
+Cov
+(
+X
+,
+Y
+)
+Var(Z)=α
+2
+ Var(X)+(1−α)
+2
+ Var(Y)+2α(1−α)Cov(X,Y)
+Substituting the given variances and covariance:
+
+Var
+(
+Z
+)
+=
+α
+2
+σ
+X
+2
++
+(
+1
+−
+α
+)
+2
+σ
+Y
+2
++
+2
+α
+(
+1
+−
+α
+)
+σ
+X
+Y
+Var(Z)=α
+2
+ σ
+X
+2
+​
+ +(1−α)
+2
+ σ
+Y
+2
+​
+ +2α(1−α)σ
+XY
+​
+
+Step 2: Expand and Simplify the Expression:
+Let's expand the terms:
+
+Var
+(
+Z
+)
+=
+α
+2
+σ
+X
+2
++
+(
+1
+−
+2
+α
++
+α
+2
+)
+σ
+Y
+2
++
+2
+α
+σ
+X
+Y
+−
+2
+α
+2
+σ
+X
+Y
+Var(Z)=α
+2
+ σ
+X
+2
+​
+ +(1−2α+α
+2
+ )σ
+Y
+2
+​
+ +2ασ
+XY
+​
+ −2α
+2
+ σ
+XY
+​
+
+Combine like terms:
+
+Var
+(
+Z
+)
+=
+α
+2
+(
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+)
++
+α
+(
+−
+2
+σ
+Y
+2
++
+2
+σ
+X
+Y
+)
++
+σ
+Y
+2
+Var(Z)=α
+2
+ (σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+ )+α(−2σ
+Y
+2
+​
+ +2σ
+XY
+​
+ )+σ
+Y
+2
+​
+
+Step 3: Minimize
+Var
+(
+Z
+)
+Var(Z) with respect to
+α
+α:
+To find the optimal
+α
+α, we take the derivative of
+Var
+(
+Z
+)
+Var(Z) with respect to
+α
+α and set it to zero:
+
+d
+d
+α
+Var
+(
+Z
+)
+=
+2
+α
+(
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+)
++
+(
+−
+2
+σ
+Y
+2
++
+2
+σ
+X
+Y
+)
+=
+0
+dα
+d
+​
+ Var(Z)=2α(σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+ )+(−2σ
+Y
+2
+​
+ +2σ
+XY
+​
+ )=0
+Solve for
+α
+α:
+
+2
+α
+(
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+)
+=
+2
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+2α(σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+ )=2σ
+Y
+2
+​
+ −2σ
+XY
+​
+
+α
+(
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+)
+=
+σ
+Y
+2
+−
+σ
+X
+Y
+α(σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+ )=σ
+Y
+2
+​
+ −σ
+XY
+​
+
+α
+=
+σ
+Y
+2
+−
+σ
+X
+Y
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+α=
+σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+
+σ
+Y
+2
+​
+ −σ
+XY
+​
+
+​
+
+Step 4: Verify the Second Derivative (to ensure it's a minimum):
+Take the second derivative of
+Var
+(
+Z
+)
+Var(Z):
+
+d
+2
+d
+α
+2
+Var
+(
+Z
+)
+=
+2
+(
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+)
+dα
+2
+
+d
+2
+
+​
+ Var(Z)=2(σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+ )
+For this to be a minimum, the second derivative must be positive:
+
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+>
+0
+σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+ >0
+This holds as long as
+σ
+X
+2
++
+σ
+Y
+2
+>
+2
+σ
+X
+Y
+σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ >2σ
+XY
+​
+ , which is true unless
+X
+X and
+Y
+Y are perfectly positively correlated with
+σ
+X
+=
+σ
+Y
+σ
+X
+​
+ =σ
+Y
+​
+ .
+
+Final Answer:
+The optimal
+α
+α that minimizes
+Var
+(
+Z
+)
+Var(Z) is:
+
+α
+∗
+=
+σ
+Y
+2
+−
+σ
+X
+Y
+σ
+X
+2
++
+σ
+Y
+2
+−
+2
+σ
+X
+Y
+α
+∗
+ =
+σ
+X
+2
+​
+ +σ
+Y
+2
+​
+ −2σ
+XY
+​
+
+σ
+Y
+2
+​
+ −σ
+XY
+​
+
+​
+
+Interpretation:
+If
+σ
+X
+Y
+=
+0
+σ
+XY
+​
+ =0 (uncorrelated variables), then:
+
+α
+∗
+=
+σ
+Y
+2
+σ
+X
+2
++
+σ
+Y
+2
+α
+∗
+ =
+σ
+X
+2
+​
+ +σ
+Y
+2
+​
+
+σ
+Y
+2
+​
+
+​
+
+This means the optimal weight is proportional to the variance of the other variable (higher variance gets less weight).
+
+If
+σ
+X
+Y
+>
+0
+σ
+XY
+​
+ >0, the optimal
+α
+α adjusts for the positive covariance to further reduce variance.
+
+This result is useful in portfolio optimization (finance) and weighted least squares (statistics).
