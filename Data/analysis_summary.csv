@@ -1,0 +1,8 @@
+Metric,Value
+Total Transactions,9835.0
+Total Unique Items,169.0
+Average Items per Transaction,4.409456024402644
+Frequent Itemsets Found,333.0
+Association Rules Generated,460.0
+High Confidence Rules (>40%),62.0
+High Lift Rules (>2.0),124.0

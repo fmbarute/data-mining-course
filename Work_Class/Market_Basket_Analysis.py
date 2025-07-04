@@ -1,518 +1,1005 @@
+#!/usr/bin/env python3
+
 import pandas as pd
 import numpy as np
+from mlxtend.frequent_patterns import apriori, association_rules
+from mlxtend.preprocessing import TransactionEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
-from collections import Counter, defaultdict
-from itertools import combinations
+from collections import Counter
 import warnings
+import os
+import sys
+
 
 warnings.filterwarnings('ignore')
+plt.style.use('default')
+sns.set_palette("husl")
 
 
-class GroceryStoreMarketBasketAnalyzer:
-    """
-    Complete Market Basket Analysis for Grocery Store Dataset
-    Designed specifically for comma-separated transaction data
-    """
-
-    def __init__(self):
-        self.raw_data = None
-        self.transactions = None
+class MarketBasketAnalyzer:
+    def __init__(self, data_path='/home/nkubito/Data_Minig_Course/Data/groceries.csv'):
+        self.data_path = data_path
+        self.transactions = []
+        self.df_encoded = None
         self.frequent_itemsets = None
         self.rules = None
-        self.item_support = {}
+        self.item_frequency = None
+        self.top_items = []
 
-    def load_grocery_data(self, file_path='/home/nkubito/Data_Minig_Course/Data/USArrests.csv'):
-        """
-        Load grocery store transaction data
-        """
+    def load_grocery_data(self):
+        print("=" * 60)
+        print("LOADING AND PREPROCESSING DATA")
+        print("=" * 60)
+        print(f"Loading grocery data from: {self.data_path}")
+
         try:
-            # Read the CSV file
-            with open(file_path, 'r') as file:
-                self.raw_data = file.read().strip()
-
-            print("== GROCERY STORE DATASET LOADED ===")
-
-            # Parse transactions
-            lines = self.raw_data.split('\n')
-            transactions = []
-
-            for line in lines:
-                # Remove quotes and split by comma
-                items = [item.strip() for item in line.replace('"', '').split(',') if item.strip()]
-                if len(items) >= 1:  # Keep single items too
-                    transactions.append(items)
-
-            self.transactions = transactions
-
-            print(f"Total transactions: {len(transactions)}")
-
-            # Basic statistics
-            transaction_sizes = [len(t) for t in transactions]
-            avg_size = np.mean(transaction_sizes)
-
-            print(f"Average items per transaction: {avg_size:.1f}")
-            print(f"Transaction size range: {min(transaction_sizes)} to {max(transaction_sizes)} items")
-
-            # Get all unique items
-            all_items = set()
-            for transaction in transactions:
-                all_items.update(transaction)
-
-            print(f"Unique items: {len(all_items)}")
-            print(f"Items: {', '.join(sorted(all_items))}")
-
-            # Show sample transactions
-            print(f"\nSample transactions:")
-            for i in range(min(10, len(transactions))):
-                print(f"  Transaction {i + 1}: [{', '.join(transactions[i])}]")
-
-            return transactions
+            with open(self.data_path, 'r', encoding='utf-8') as file:
+                lines = file.readlines()
+            print(f"✓ Successfully read groceries.csv from {self.data_path}")
 
         except FileNotFoundError:
-            print(f"❌ File '{file_path}' not found!")
-            return None
-        except Exception as e:
-            print(f"❌ Error loading data: {str(e)}")
-            return None
+            try:
+                df_raw = pd.read_csv(self.data_path, header=None)
+                lines = []
+                for idx, row in df_raw.iterrows():
+                    line = ','.join([str(val) for val in row.values if pd.notna(val)])
+                    lines.append(line + '\n')
+                print(f"✓ Successfully read groceries.csv using pandas from {self.data_path}")
 
-    def analyze_item_frequencies(self):
-        """
-        Analyze individual item frequencies and popularity
-        """
-        if self.transactions is None:
-            print("Please load data first!")
-            return
+            except FileNotFoundError:
+                try:
+                    with open('groceries.csv', 'r', encoding='utf-8') as file:
+                        lines = file.readlines()
+                    print("✓ Successfully read groceries.csv from current directory")
 
-        # Count item frequencies
-        item_counts = Counter()
-        for transaction in self.transactions:
-            item_counts.update(transaction)
+                except FileNotFoundError:
+                    print("❌ groceries.csv not found in specified path or current directory.")
+                    print(f"❌ Looked for: {self.data_path}")
+                    print("❌ Please ensure the file exists and path is correct.")
+                    return False
+
+        for line in lines:
+            items = [item.strip() for item in line.strip().split(',')
+                     if item.strip() and item.strip().lower() != 'nan']
+            if items:  # Only add non-empty transactions
+                self.transactions.append(items)
+
+        print(f"✓ Loaded {len(self.transactions)} transactions")
+
+        if len(self.transactions) == 0:
+            print("❌ No valid transactions found!")
+            return False
+        te = TransactionEncoder()
+        te_ary = te.fit(self.transactions).transform(self.transactions)
+        self.df_encoded = pd.DataFrame(te_ary, columns=te.columns_)
+
+        print(f"✓ Dataset shape: {self.df_encoded.shape}")
+        print(f"✓ Number of unique items: {len(self.df_encoded.columns)}")
+
+        return True
+
+    def analyze_data_overview(self):
+        if not self.transactions:
+            print("❌ No transactions to analyze")
+            return False
 
         print("\n" + "=" * 60)
-        print("ITEM FREQUENCY ANALYSIS")
+        print("DATA OVERVIEW AND STATISTICS")
         print("=" * 60)
 
-        total_transactions = len(self.transactions)
+        transaction_lengths = [len(transaction) for transaction in self.transactions]
 
-        print(f"\nTop 10 Most Popular Items:")
-        print("-" * 40)
-        for item, count in item_counts.most_common(10):
-            support = count / total_transactions
-            print(f"{item:15} | {count:3d} times | {support * 100:5.1f}% support")
-
-        # Store support values
-        for item, count in item_counts.items():
-            self.item_support[item] = count / total_transactions
-
-        return item_counts
-
-    def calculate_support(self, itemset):
-        """
-        Calculate support for an itemset
-        """
-        if isinstance(itemset, str):
-            itemset = [itemset]
-
-        count = 0
-        for transaction in self.transactions:
-            if all(item in transaction for item in itemset):
-                count += 1
-
-        return count / len(self.transactions)
-
-    def find_frequent_itemsets(self, min_support=0.1):
-        """
-        Find frequent itemsets using custom Apriori implementation
-        """
-        if self.transactions is None:
-            print("Please load data first!")
-            return None
-
-        frequent_itemsets = {}
-
-        # Get all unique items
-        all_items = set()
-        for transaction in self.transactions:
-            all_items.update(transaction)
-
-        print(f"\n" + "=" * 60)
-        print("FINDING FREQUENT ITEMSETS")
-        print("=" * 60)
-        print(f"Minimum support threshold: {min_support * 100:.1f}%")
-
-        # Find frequent 1-itemsets
-        frequent_1_itemsets = []
-        print(f"\nFrequent 1-itemsets:")
-        for item in all_items:
-            support = self.calculate_support([item])
-            if support >= min_support:
-                frequent_1_itemsets.append(frozenset([item]))
-                print(f"  {item}: {support:.3f}")
-
-        frequent_itemsets[1] = frequent_1_itemsets
-        print(f"Found {len(frequent_1_itemsets)} frequent 1-itemsets")
-
-        # Find frequent k-itemsets (k > 1)
-        k = 2
-        while frequent_itemsets[k - 1] and k <= 5:  # Limit to 5-itemsets for interpretability
-            candidates = []
-
-            # Generate candidates
-            prev_itemsets = frequent_itemsets[k - 1]
-            for i in range(len(prev_itemsets)):
-                for j in range(i + 1, len(prev_itemsets)):
-                    # Join two (k-1)-itemsets
-                    candidate = prev_itemsets[i] | prev_itemsets[j]
-                    if len(candidate) == k:
-                        candidates.append(candidate)
-
-            # Remove duplicates
-            candidates = list(set(candidates))
-
-            # Check support for candidates
-            frequent_k_itemsets = []
-            if candidates:
-                print(f"\nFrequent {k}-itemsets:")
-
-            for candidate in candidates:
-                support = self.calculate_support(list(candidate))
-                if support >= min_support:
-                    frequent_k_itemsets.append(candidate)
-                    items_str = ', '.join(sorted(list(candidate)))
-                    print(f"  {{{items_str}}}: {support:.3f}")
-
-            if frequent_k_itemsets:
-                frequent_itemsets[k] = frequent_k_itemsets
-                print(f"Found {len(frequent_k_itemsets)} frequent {k}-itemsets")
-            else:
-                print(f"No frequent {k}-itemsets found")
-                break
-
-            k += 1
-
-        self.frequent_itemsets = frequent_itemsets
-        return frequent_itemsets
-
-    def generate_association_rules(self, min_confidence=0.5):
-        """
-        Generate association rules from frequent itemsets
-        """
-        if self.frequent_itemsets is None:
-            self.find_frequent_itemsets()
-
-        rules = []
-
-        print(f"\n" + "=" * 60)
-        print("GENERATING ASSOCIATION RULES")
-        print("=" * 60)
-        print(f"Minimum confidence threshold: {min_confidence * 100:.1f}%")
-
-        # Generate rules from itemsets of size 2 and above
-        for k in range(2, len(self.frequent_itemsets) + 1):
-            if k not in self.frequent_itemsets:
-                continue
-
-            for itemset in self.frequent_itemsets[k]:
-                itemset_list = list(itemset)
-                itemset_support = self.calculate_support(itemset_list)
-
-                # Generate all possible antecedent-consequent pairs
-                for i in range(1, len(itemset_list)):
-                    for antecedent in combinations(itemset_list, i):
-                        consequent = [item for item in itemset_list if item not in antecedent]
-
-                        antecedent_support = self.calculate_support(list(antecedent))
-                        consequent_support = self.calculate_support(consequent)
-
-                        if antecedent_support > 0:
-                            confidence = itemset_support / antecedent_support
-
-                            if confidence >= min_confidence:
-                                lift = confidence / consequent_support if consequent_support > 0 else 0
-                                conviction = (1 - consequent_support) / (1 - confidence) if confidence < 1 else float(
-                                    'inf')
-
-                                rule = {
-                                    'antecedent': list(antecedent),
-                                    'consequent': consequent,
-                                    'support': itemset_support,
-                                    'confidence': confidence,
-                                    'lift': lift,
-                                    'conviction': conviction,
-                                    'antecedent_support': antecedent_support,
-                                    'consequent_support': consequent_support
-                                }
-                                rules.append(rule)
-
-        self.rules = pd.DataFrame(rules)
-        print(f"\nGenerated {len(self.rules)} association rules")
-        return self.rules
-
-    def analyze_association_rules(self, top_n=15):
-        """
-        Analyze and display top association rules
-        """
-        if self.rules is None or len(self.rules) == 0:
-            print("No rules found. Try lowering the minimum confidence threshold.")
-            return None
-
-        print(f"\n" + "=" * 80)
-        print("ASSOCIATION RULES ANALYSIS")
-        print("=" * 80)
-
-        # Sort by lift (indicates strength of association)
-        top_rules = self.rules.nlargest(top_n, 'lift')
-
-        print(f"\nTOP {len(top_rules)} ASSOCIATION RULES (sorted by lift):")
-        print("=" * 80)
-
-        for idx, rule in top_rules.iterrows():
-            antecedent = ', '.join(rule['antecedent'])
-            consequent = ', '.join(rule['consequent'])
-
-            print(f"\nRule #{idx + 1}: {antecedent} → {consequent}")
-            print(f"  Support: {rule['support']:.3f} ({rule['support'] * 100:.1f}%)")
-            print(f"  Confidence: {rule['confidence']:.3f} ({rule['confidence'] * 100:.1f}%)")
-            print(f"  Lift: {rule['lift']:.3f}")
-            if rule['conviction'] != float('inf'):
-                print(f"  Conviction: {rule['conviction']:.3f}")
-
-            # Business interpretation
-            if rule['confidence'] >= 0.8:
-                strength = "Very Strong"
-            elif rule['confidence'] >= 0.6:
-                strength = "Strong"
-            else:
-                strength = "Moderate"
-
-            print(f"  📊 Interpretation: {strength} rule - Customers buying {antecedent}")
-            print(f"     have {rule['confidence'] * 100:.1f}% chance of also buying {consequent}")
-
-            if rule['lift'] > 1.5:
-                print(f"  🔥 High Impact: {rule['lift']:.1f}x more likely than random chance!")
-            elif rule['lift'] > 1.2:
-                print(f"  ⭐ Good Impact: {rule['lift']:.1f}x more likely than random chance")
-
-            print("-" * 80)
-
-        return top_rules
-
-    def generate_business_insights(self):
-        """
-        Generate actionable business insights for grocery store
-        """
-        if self.rules is None or len(self.rules) == 0:
-            print("No rules available for insights. Generate rules first.")
-            return
-
-        print(f"\n" + "=" * 80)
-        print("🛒 GROCERY STORE BUSINESS INSIGHTS & RECOMMENDATIONS")
-        print("=" * 80)
-
-        # High confidence rules (reliable patterns)
-        high_conf_rules = self.rules[self.rules['confidence'] >= 0.7]
-        print(f"\n1. 🎯 STRONG PURCHASING PATTERNS ({len(high_conf_rules)} rules with confidence ≥ 70%):")
-        print("-" * 60)
-
-        for idx, rule in high_conf_rules.head(5).iterrows():
-            antecedent = ', '.join(rule['antecedent'])
-            consequent = ', '.join(rule['consequent'])
-            print(f"   • Customers buying {antecedent}")
-            print(f"     → {rule['confidence'] * 100:.1f}% also buy {consequent}")
-
-        # High lift rules (strong associations)
-        high_lift_rules = self.rules[self.rules['lift'] >= 1.5]
-        print(f"\n2. 🔥 STRONG PRODUCT ASSOCIATIONS ({len(high_lift_rules)} rules with lift ≥ 1.5):")
-        print("-" * 60)
-
-        for idx, rule in high_lift_rules.head(5).iterrows():
-            antecedent = ', '.join(rule['antecedent'])
-            consequent = ', '.join(rule['consequent'])
-            print(f"   • {antecedent} + {consequent} bought together")
-            print(f"     {rule['lift']:.1f}x more often than expected by chance")
+        print(f"📊 Total transactions: {len(self.transactions):,}")
+        print(f"📊 Average items per transaction: {np.mean(transaction_lengths):.2f}")
+        print(f"📊 Median items per transaction: {np.median(transaction_lengths):.2f}")
+        print(f"📊 Max items in a transaction: {max(transaction_lengths)}")
+        print(f"📊 Min items in a transaction: {min(transaction_lengths)}")
 
         # Most frequent items
-        if self.item_support:
-            print(f"\n3. 📊 MOST POPULAR ITEMS:")
-            print("-" * 60)
-            top_items = sorted(self.item_support.items(), key=lambda x: x[1], reverse=True)[:5]
-            for item, support in top_items:
-                print(f"   • {item}: {support * 100:.1f}% of customers buy this")
+        all_items = [item for transaction in self.transactions for item in transaction]
+        self.item_frequency = Counter(all_items)
 
-        print(f"\n4. 💡 ACTIONABLE BUSINESS RECOMMENDATIONS:")
+        print(f"\n🏆 Top 20 most frequent items:")
         print("-" * 60)
-        print("   🏪 STORE LAYOUT:")
-        print("      • Place frequently associated items near each other")
-        print("      • Create 'combo zones' for high-lift product pairs")
-        print("      • Position high-confidence consequent items near antecedent items")
+        self.top_items = []
+        for item, count in self.item_frequency.most_common(20):
+            percentage = (count / len(self.transactions)) * 100
+            print(f"{item:<35} {count:>6} ({percentage:>5.1f}%)")
+            self.top_items.append((item, count, percentage))
 
-        print("\n   🏷️  PROMOTIONAL STRATEGIES:")
-        print("      • Bundle products with high lift values for combo deals")
-        print("      • Offer discounts on consequent items when antecedent items are purchased")
-        print("      • Create 'customers who bought X also bought Y' recommendations")
+        return True
 
-        print("\n   📦 INVENTORY MANAGEMENT:")
-        print("      • Stock associated items proportionally")
-        print("      • Ensure availability of consequent items when antecedent items are in demand")
-        print("      • Plan joint promotions for highly associated products")
+    def visualize_top_items(self, n=15, save_plot=True):
+        """Create visualization of the most frequent items"""
+        if not self.top_items:
+            print("❌ No item data available for plotting")
+            return
 
-        print("\n   🎯 MARKETING CAMPAIGNS:")
-        print("      • Target customers who buy antecedent items with consequent item ads")
-        print("      • Create themed shopping lists based on strong associations")
-        print("      • Develop cross-selling strategies using high-confidence rules")
+        items = [item[0] for item in self.top_items[:n]]
+        counts = [item[1] for item in self.top_items[:n]]
 
-    def create_visualizations(self):
-        """
-        Create comprehensive visualizations for the analysis
-        """
+        plt.figure(figsize=(14, 8))
+        bars = plt.bar(range(len(items)), counts, color='skyblue', edgecolor='navy', alpha=0.7)
+        plt.xlabel('Items', fontsize=12)
+        plt.ylabel('Frequency', fontsize=12)
+        plt.title(f'Top {n} Most Frequent Items in Grocery Transactions', fontsize=14, fontweight='bold')
+        plt.xticks(range(len(items)), items, rotation=45, ha='right')
+
+        # Add value labels on bars
+        for bar, count in zip(bars, counts):
+            plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max(counts) * 0.01,
+                     str(count), ha='center', va='bottom', fontsize=10)
+
+        plt.tight_layout()
+        plt.grid(axis='y', alpha=0.3)
+
+        if save_plot:
+            output_dir = os.path.dirname(self.data_path)
+            plt.savefig(os.path.join(output_dir, 'top_items_frequency.png'), dpi=300, bbox_inches='tight')
+            print(f"✓ Plot saved to {os.path.join(output_dir, 'top_items_frequency.png')}")
+
+        plt.show()
+
+    def find_frequent_itemsets(self, min_support=0.01):
+
+        print("\n" + "=" * 80)
+        print("TASK 1: PATTERN DISCOVERY - FREQUENT ITEMSETS AND ASSOCIATIONS")
+        print("=" * 80)
+        print("📋 OBJECTIVE: Identify frequent itemsets and associations between grocery items")
+        print(f"🔍 Method: Apriori Algorithm with minimum support threshold: {min_support}")
+
+        if self.df_encoded is None:
+            print("❌ No encoded data available")
+            return False
+
+        # Apply Apriori algorithm
+        self.frequent_itemsets = apriori(self.df_encoded,
+                                         min_support=min_support,
+                                         use_colnames=True)
+
+        if len(self.frequent_itemsets) == 0:
+            print("❌ No frequent itemsets found with the given minimum support.")
+            print("💡 Try reducing the minimum support threshold")
+            return False
+
+        self.frequent_itemsets = self.frequent_itemsets.sort_values('support', ascending=False)
+
+        print(f"✅ DISCOVERY RESULTS: Found {len(self.frequent_itemsets)} frequent itemsets")
+
+        print(f"\n📊 PATTERN ANALYSIS BY ITEMSET SIZE:")
+        print("-" * 80)
+
+        total_patterns = 0
+        for length in sorted(self.frequent_itemsets['itemsets'].apply(len).unique()):
+            itemsets_of_length = self.frequent_itemsets[
+                self.frequent_itemsets['itemsets'].apply(len) == length
+                ]
+            total_patterns += len(itemsets_of_length)
+
+            print(f"\n📦 {length}-ITEMSETS (Individual items combinations): {len(itemsets_of_length)} patterns found")
+
+            if length == 1:
+                print("   → These are individual items frequently purchased")
+            elif length == 2:
+                print("   → These are pairs of items frequently bought together")
+            elif length == 3:
+                print("   → These are triplets of items frequently purchased together")
+            else:
+                print(f"   → These are {length}-item combinations frequently purchased together")
+
+            print(f"   Top {min(10, len(itemsets_of_length))} patterns by support:")
+            for idx, row in itemsets_of_length.head(10).iterrows():
+                items = ', '.join(list(row['itemsets']))
+                percentage = row['support'] * 100
+                print(f"     • {items:<55} Support: {row['support']:.3f} ({percentage:.1f}% of transactions)")
+
+
+        print(f"\n🔍 KEY PATTERN INSIGHTS:")
+        print("-" * 50)
+
+
+        single_items = self.frequent_itemsets[self.frequent_itemsets['itemsets'].apply(len) == 1]
+        if len(single_items) > 0:
+            top_single = single_items.iloc[0]
+            item_name = list(top_single['itemsets'])[0]
+            print(f"📈 Most frequent single item: '{item_name}' (in {top_single['support'] * 100:.1f}% of transactions)")
+
+
+        pairs = self.frequent_itemsets[self.frequent_itemsets['itemsets'].apply(len) == 2]
+        if len(pairs) > 0:
+            top_pair = pairs.iloc[0]
+            items = ', '.join(list(top_pair['itemsets']))
+            print(f"👥 Most frequent item pair: '{items}' (in {top_pair['support'] * 100:.1f}% of transactions)")
+
+        # Larger combinations
+        larger = self.frequent_itemsets[self.frequent_itemsets['itemsets'].apply(len) >= 3]
+        if len(larger) > 0:
+            print(f"🛒 Complex patterns: {len(larger)} combinations of 3+ items found")
+            top_large = larger.iloc[0]
+            items = ', '.join(list(top_large['itemsets']))
+            print(f"   Best complex pattern: '{items}' (in {top_large['support'] * 100:.1f}% of transactions)")
+
+        print(f"\n✅ TASK 1 COMPLETED: Successfully discovered {total_patterns} frequent patterns in grocery data")
+
+        return True
+
+    def generate_association_rules(self, metric="confidence", min_threshold=0.1):
+
+        print("\n" + "=" * 80)
+        print("TASK 2: ASSOCIATION RULES GENERATION - 'IF A, THEN B' RELATIONSHIPS")
+        print("=" * 80)
+        print("📋 OBJECTIVE: Create association rules describing relationships between grocery items")
+        print("📏 FORMAT: 'If customer buys A, then they will buy B' with confidence metrics")
+        print(f"🎯 Method: {metric.title()} with minimum threshold: {min_threshold}")
+
+        if self.frequent_itemsets is None:
+            print("❌ Please run find_frequent_itemsets() first")
+            return False
+        self.rules = association_rules(self.frequent_itemsets,
+                                       metric=metric,
+                                       min_threshold=min_threshold)
+        if len(self.rules) == 0:
+            print("❌ No association rules found with the given threshold.")
+            print("💡 Try reducing the minimum threshold")
+            return False
+
+        self.rules = self.rules.sort_values(['confidence', 'lift'], ascending=False)
+
+        print(f"✅ RULE GENERATION RESULTS: Created {len(self.rules)} association rules")
+
+        print(f"\n📊 RULE METRICS EXPLANATION:")
+        print("-" * 60)
+        print("• SUPPORT: How frequently the itemset appears in transactions")
+        print("• CONFIDENCE: Probability of buying B given A was bought")
+        print("• LIFT: How much more likely B is bought when A is bought (vs random)")
+        print("• CONVICTION: Measure of rule dependence")
+
+        print(f"\n🏆 TOP 20 ASSOCIATION RULES ('IF A, THEN B' FORMAT):")
+        print("=" * 120)
+        print(
+            f"{'Rule ID':<8} {'Antecedent (A)':<25} {'Consequent (B)':<25} {'Support':<8} {'Confidence':<10} {'Lift':<8}")
+        print("=" * 120)
+
+        for i, (idx, rule) in enumerate(self.rules.head(20).iterrows(), 1):
+            antecedent = ', '.join(list(rule['antecedents']))
+            consequent = ', '.join(list(rule['consequents']))
+            support = rule['support']
+            confidence = rule['confidence']
+            lift = rule['lift']
+
+            ant_display = antecedent[:23] + ".." if len(antecedent) > 25 else antecedent
+            cons_display = consequent[:23] + ".." if len(consequent) > 25 else consequent
+
+            print(f"Rule {i:<3} {ant_display:<25} {cons_display:<25} {support:<8.3f} {confidence:<10.3f} {lift:<8.3f}")
+
+
+        print(f"\n🔍 DETAILED RULE INTERPRETATIONS:")
+        print("=" * 80)
+
+        for i, (idx, rule) in enumerate(self.rules.head(10).iterrows(), 1):
+            antecedent = ', '.join(list(rule['antecedents']))
+            consequent = ', '.join(list(rule['consequents']))
+
+            print(f"\nRule #{i}: IF customer buys [{antecedent}] THEN they will buy [{consequent}]")
+            print(
+                f"   📊 Confidence: {rule['confidence'] * 100:.1f}% - This rule is correct {rule['confidence'] * 100:.1f}% of the time")
+            print(
+                f"   📈 Support: {rule['support'] * 100:.2f}% - This combination occurs in {rule['support'] * 100:.2f}% of all transactions")
+            print(
+                f"   🚀 Lift: {rule['lift']:.2f} - Buying {antecedent} makes buying {consequent} {rule['lift']:.2f}x more likely")
+
+            if rule['lift'] > 2:
+                print(f"   💡 STRONG RELATIONSHIP: Very high likelihood of purchase together")
+            elif rule['lift'] > 1.5:
+                print(f"   ✨ GOOD RELATIONSHIP: Above average likelihood of purchase together")
+            elif rule['lift'] > 1:
+                print(f"   👍 POSITIVE RELATIONSHIP: Slightly more likely to be purchased together")
+
+        # Rule categories analysis
+        print(f"\n📈 RULE QUALITY ANALYSIS:")
+        print("-" * 50)
+
+
+        high_conf = self.rules[self.rules['confidence'] > 0.5]
+        print(f"🎯 High Confidence Rules (>50%): {len(high_conf)} rules")
+        print(f"   → These are very reliable predictions")
+
+
+        high_lift = self.rules[self.rules['lift'] > 2.0]
+        print(f"🚀 High Lift Rules (>2.0): {len(high_lift)} rules")
+        print(f"   → These show strong item associations")
+
+
+        high_support = self.rules[self.rules['support'] > 0.05]
+        print(f"📊 High Support Rules (>5%): {len(high_support)} rules")
+        print(f"   → These occur frequently in transactions")
+
+        # Perfect rules (if any)
+        perfect_rules = self.rules[self.rules['confidence'] == 1.0]
+        if len(perfect_rules) > 0:
+            print(f"⭐ Perfect Rules (100% confidence): {len(perfect_rules)} rules")
+            print(f"   → These items are ALWAYS bought together")
+
+        print(f"\n✅ TASK 2 COMPLETED: Successfully generated {len(self.rules)} 'if A, then B' association rules")
+
+        return True
+
+    def visualize_association_rules(self, top_n=15, save_plot=True):
+
         if self.rules is None or len(self.rules) == 0:
-            print("No rules to visualize. Generate rules first.")
+            print("❌ No rules to visualize")
             return
 
         # Create subplots
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        fig.suptitle('🛒 Grocery Store Market Basket Analysis - Complete Dashboard', fontsize=16, fontweight='bold')
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+        fig.suptitle('Association Rules Analysis', fontsize=16, fontweight='bold')
 
-        # 1. Support vs Confidence scatter plot
-        scatter = axes[0, 0].scatter(self.rules['support'], self.rules['confidence'],
-                                     c=self.rules['lift'], cmap='viridis', alpha=0.7, s=60)
+        # Plot 1: Support vs Confidence
+        scatter1 = axes[0, 0].scatter(self.rules['support'], self.rules['confidence'],
+                                      c=self.rules['lift'], cmap='viridis', alpha=0.6, s=50)
         axes[0, 0].set_xlabel('Support')
         axes[0, 0].set_ylabel('Confidence')
-        axes[0, 0].set_title('Support vs Confidence\n(colored by Lift)')
-        cbar1 = plt.colorbar(scatter, ax=axes[0, 0])
+        axes[0, 0].set_title('Support vs Confidence (colored by Lift)')
+        cbar1 = plt.colorbar(scatter1, ax=axes[0, 0])
         cbar1.set_label('Lift')
 
-        # 2. Lift distribution
-        axes[0, 1].hist(self.rules['lift'], bins=15, alpha=0.7, color='skyblue', edgecolor='black')
-        axes[0, 1].set_xlabel('Lift')
-        axes[0, 1].set_ylabel('Number of Rules')
-        axes[0, 1].set_title('Distribution of Lift Values')
-        axes[0, 1].axvline(x=1, color='red', linestyle='--', linewidth=2, label='Lift = 1 (Independence)')
-        axes[0, 1].legend()
-
-        # 3. Top rules by confidence
-        if len(self.rules) >= 10:
-            top_conf_rules = self.rules.nlargest(10, 'confidence')
-            rule_labels = [f"Rule {i + 1}" for i in range(len(top_conf_rules))]
-
-            bars = axes[0, 2].barh(range(len(rule_labels)), top_conf_rules['confidence'], color='orange', alpha=0.7)
-            axes[0, 2].set_yticks(range(len(rule_labels)))
-            axes[0, 2].set_yticklabels(rule_labels, fontsize=8)
-            axes[0, 2].set_xlabel('Confidence')
-            axes[0, 2].set_title('Top 10 Rules by Confidence')
-
-            # Add value labels on bars
-            for i, bar in enumerate(bars):
-                width = bar.get_width()
-                axes[0, 2].text(width + 0.01, bar.get_y() + bar.get_height() / 2,
-                                f'{width:.2f}', ha='left', va='center', fontsize=8)
-
-        # 4. Item frequency
-        if self.item_support:
-            top_items = dict(sorted(self.item_support.items(), key=lambda x: x[1], reverse=True)[:8])
-            bars = axes[1, 0].bar(range(len(top_items)), list(top_items.values()),
-                                  color='lightgreen', alpha=0.7, edgecolor='black')
-            axes[1, 0].set_xticks(range(len(top_items)))
-            axes[1, 0].set_xticklabels(list(top_items.keys()), rotation=45, ha='right')
-            axes[1, 0].set_ylabel('Support')
-            axes[1, 0].set_title('Most Popular Items\n(Individual Item Support)')
-
-            # Add value labels on bars
-            for i, bar in enumerate(bars):
-                height = bar.get_height()
-                axes[1, 0].text(bar.get_x() + bar.get_width() / 2, height + 0.01,
-                                f'{height:.2f}', ha='center', va='bottom', fontsize=8)
-
-        # 5. Rule metrics comparison
-        if len(self.rules) >= 5:
-            top_5_rules = self.rules.nlargest(5, 'lift')
-            x = np.arange(5)
-            width = 0.25
-
-            bars1 = axes[1, 1].bar(x - width, top_5_rules['support'], width, label='Support', alpha=0.7)
-            bars2 = axes[1, 1].bar(x, top_5_rules['confidence'], width, label='Confidence', alpha=0.7)
-            bars3 = axes[1, 1].bar(x + width, top_5_rules['lift'] / max(top_5_rules['lift']), width,
-                                   label='Lift (normalized)', alpha=0.7)
-
-            axes[1, 1].set_xlabel('Top 5 Rules (by Lift)')
-            axes[1, 1].set_ylabel('Metric Values')
-            axes[1, 1].set_title('Rule Metrics Comparison')
-            axes[1, 1].set_xticks(x)
-            axes[1, 1].set_xticklabels([f'Rule {i + 1}' for i in range(5)])
-            axes[1, 1].legend()
-
-        # 6. Support vs Lift scatter
-        scatter2 = axes[1, 2].scatter(self.rules['support'], self.rules['lift'],
-                                      c=self.rules['confidence'], cmap='plasma', alpha=0.7, s=60)
-        axes[1, 2].set_xlabel('Support')
-        axes[1, 2].set_ylabel('Lift')
-        axes[1, 2].set_title('Support vs Lift\n(colored by Confidence)')
-        axes[1, 2].axhline(y=1, color='red', linestyle='--', alpha=0.5)
-        cbar2 = plt.colorbar(scatter2, ax=axes[1, 2])
+        # Plot 2: Support vs Lift
+        scatter2 = axes[0, 1].scatter(self.rules['support'], self.rules['lift'],
+                                      c=self.rules['confidence'], cmap='plasma', alpha=0.6, s=50)
+        axes[0, 1].set_xlabel('Support')
+        axes[0, 1].set_ylabel('Lift')
+        axes[0, 1].set_title('Support vs Lift (colored by Confidence)')
+        cbar2 = plt.colorbar(scatter2, ax=axes[0, 1])
         cbar2.set_label('Confidence')
 
+        # Plot 3: Top rules by confidence
+        top_rules = self.rules.head(top_n)
+        rule_labels = [f"{', '.join(list(row['antecedents']))} → {', '.join(list(row['consequents']))}"
+                       for idx, row in top_rules.iterrows()]
+
+        y_pos = np.arange(len(rule_labels))
+        axes[1, 0].barh(y_pos, top_rules['confidence'], alpha=0.7, color='lightcoral')
+        axes[1, 0].set_yticks(y_pos)
+        axes[1, 0].set_yticklabels([label[:35] + '...' if len(label) > 35 else label
+                                    for label in rule_labels], fontsize=8)
+        axes[1, 0].set_xlabel('Confidence')
+        axes[1, 0].set_title(f'Top {top_n} Rules by Confidence')
+
+        # Plot 4: Top rules by lift
+        axes[1, 1].barh(y_pos, top_rules['lift'], alpha=0.7, color='lightgreen')
+        axes[1, 1].set_yticks(y_pos)
+        axes[1, 1].set_yticklabels([label[:35] + '...' if len(label) > 35 else label
+                                    for label in rule_labels], fontsize=8)
+        axes[1, 1].set_xlabel('Lift')
+        axes[1, 1].set_title(f'Top {top_n} Rules by Lift')
+
         plt.tight_layout()
+
+        if save_plot:
+            output_dir = os.path.dirname(self.data_path)
+            plt.savefig(os.path.join(output_dir, 'association_rules_analysis.png'), dpi=300, bbox_inches='tight')
+            print(f"✓ Rules visualization saved to {os.path.join(output_dir, 'association_rules_analysis.png')}")
+
         plt.show()
 
-        # Additional summary statistics
-        print(f"\n📊 ANALYSIS SUMMARY:")
-        print(f"   • Total rules generated: {len(self.rules)}")
-        print(f"   • Average confidence: {self.rules['confidence'].mean():.3f}")
-        print(f"   • Average lift: {self.rules['lift'].mean():.3f}")
-        print(f"   • Rules with lift > 1: {len(self.rules[self.rules['lift'] > 1])}")
-        print(f"   • High confidence rules (>70%): {len(self.rules[self.rules['confidence'] > 0.7])}")
+    def analyze_customer_behavior(self):
+
+        print("\n" + "=" * 80)
+        print("TASK 3: CUSTOMER BEHAVIOR ANALYSIS - PURCHASING HABITS & PREFERENCES")
+        print("=" * 80)
+        print("📋 OBJECTIVE: Gain insights into customer purchasing habits and preferences")
+        print("🔍 METHOD: Analyze association rules to understand shopping patterns")
+
+        if self.rules is None:
+            print("❌ Please run generate_association_rules() first")
+            return False
+
+        print(f"✅ ANALYZING {len(self.rules)} association rules for customer insights...")
+
+        # Customer habit categories
+        print(f"\n📊 CUSTOMER PURCHASING HABIT CATEGORIES:")
+        print("=" * 60)
+
+        # 1. Strong habits (high confidence)
+        high_confidence_rules = self.rules[self.rules['confidence'] > 0.5]
+        print(f"🎯 STRONG PURCHASING HABITS (Confidence > 50%): {len(high_confidence_rules)} patterns")
+        print(f"   → These represent reliable customer behavior patterns")
+
+        # 2. Popular combinations (high lift)
+        high_lift_rules = self.rules[self.rules['lift'] > 2.0]
+        print(f"🚀 POPULAR ITEM COMBINATIONS (Lift > 2.0): {len(high_lift_rules)} patterns")
+        print(f"   → These show items customers strongly associate together")
+
+        # 3. Frequent behaviors (high support)
+        high_support_rules = self.rules[self.rules['support'] > 0.03]
+        print(f"📈 FREQUENT SHOPPING BEHAVIORS (Support > 3%): {len(high_support_rules)} patterns")
+        print(f"   → These represent common customer purchasing patterns")
+
+        # Most impactful customer behaviors
+        impactful_rules = self.rules[
+            (self.rules['confidence'] > 0.3) & (self.rules['lift'] > 1.5)
+            ]
+
+        print(f"\n🔍 DETAILED CUSTOMER BEHAVIOR INSIGHTS:")
+        print("=" * 80)
+        print(f"Analyzing {len(impactful_rules)} significant behavior patterns...")
+
+        # Customer behavior patterns
+        behavior_insights = []
+
+        for idx, rule in impactful_rules.head(15).iterrows():
+            antecedent = ', '.join(list(rule['antecedents']))
+            consequent = ', '.join(list(rule['consequents']))
+
+            behavior_insights.append({
+                'trigger_items': antecedent,
+                'follow_up_items': consequent,
+                'confidence': rule['confidence'],
+                'lift': rule['lift'],
+                'support': rule['support']
+            })
+
+            print(f"\n🛒 CUSTOMER BEHAVIOR PATTERN #{len(behavior_insights)}:")
+            print(f"   When customers buy: {antecedent}")
+            print(f"   They are {rule['confidence'] * 100:.1f}% likely to also buy: {consequent}")
+            print(f"   This happens {rule['lift']:.2f}x more often than by chance")
+            print(f"   Found in {rule['support'] * 100:.2f}% of all shopping trips")
+
+            # Interpret the behavior
+            if rule['confidence'] > 0.7:
+                behavior_type = "VERY STRONG habit"
+            elif rule['confidence'] > 0.5:
+                behavior_type = "STRONG habit"
+            elif rule['confidence'] > 0.3:
+                behavior_type = "MODERATE habit"
+            else:
+                behavior_type = "WEAK tendency"
+
+            print(f"   💡 INTERPRETATION: This represents a {behavior_type} in customer purchasing")
+
+        # Shopping pattern categories
+        print(f"\n🛍️ SHOPPING PATTERN ANALYSIS:")
+        print("=" * 60)
+
+        # Find complementary shopping patterns
+        complementary_patterns = []
+        substitute_patterns = []
+
+        if len(high_lift_rules) > 0:
+            print(f"\n1. 🤝 COMPLEMENTARY SHOPPING PATTERNS (Items bought together):")
+            for idx, rule in high_lift_rules.head(10).iterrows():
+                ant = ', '.join(list(rule['antecedents']))
+                cons = ', '.join(list(rule['consequents']))
+                complementary_patterns.append((ant, cons, rule['lift']))
+                print(f"   • {ant} + {cons} (Lift: {rule['lift']:.2f})")
+
+                # Explain why they're complementary
+                if rule['lift'] > 3:
+                    print(f"     → VERY STRONG complementary relationship")
+                elif rule['lift'] > 2:
+                    print(f"     → STRONG complementary relationship")
+                else:
+                    print(f"     → MODERATE complementary relationship")
+
+        # Find potential substitute patterns (low lift but reasonable support)
+        substitutes = self.rules[(self.rules['lift'] < 1.0) & (self.rules['support'] > 0.02)]
+        if len(substitutes) > 0:
+            print(f"\n2. 🔄 POTENTIAL SUBSTITUTE PATTERNS (Alternative choices):")
+            for idx, rule in substitutes.head(5).iterrows():
+                ant = ', '.join(list(rule['antecedents']))
+                cons = ', '.join(list(rule['consequents']))
+                substitute_patterns.append((ant, cons, rule['lift']))
+                print(f"   • {ant} vs {cons} (Lift: {rule['lift']:.2f})")
+                print(f"     → Customers might choose one OR the other")
+
+        # Customer preference insights
+        print(f"\n👥 CUSTOMER PREFERENCE INSIGHTS:")
+        print("=" * 50)
+
+        # Most predictable customers
+        most_predictable = self.rules[self.rules['confidence'] > 0.6]
+        if len(most_predictable) > 0:
+            print(f"🎯 PREDICTABLE SHOPPING: {len(most_predictable)} highly predictable patterns found")
+            print(f"   → Some customer segments have very consistent shopping habits")
+
+        # Impulse buying patterns (high lift, low support)
+        impulse_patterns = self.rules[(self.rules['lift'] > 2.5) & (self.rules['support'] < 0.05)]
+        if len(impulse_patterns) > 0:
+            print(f"⚡ IMPULSE BUYING: {len(impulse_patterns)} impulse purchase patterns detected")
+            print(f"   → These items trigger spontaneous additional purchases")
+
+        # Routine shopping patterns (high support, moderate confidence)
+        routine_patterns = self.rules[(self.rules['support'] > 0.05) &
+                                      (self.rules['confidence'] > 0.2) &
+                                      (self.rules['confidence'] < 0.5)]
+        if len(routine_patterns) > 0:
+            print(f"🔄 ROUTINE SHOPPING: {len(routine_patterns)} routine purchase patterns found")
+            print(f"   → These represent regular, habitual shopping behaviors")
+
+        # Customer segmentation insights
+        print(f"\n👨‍👩‍👧‍👦 CUSTOMER SEGMENTATION INSIGHTS:")
+        print("-" * 40)
+
+        # Analyze by item categories to infer customer types
+        breakfast_rules = self.rules[
+            self.rules.apply(lambda x: any('coffee' in str(item).lower() or
+                                           'bread' in str(item).lower() or
+                                           'milk' in str(item).lower()
+                                           for item in list(x['antecedents']) + list(x['consequents'])), axis=1)
+        ]
+
+        if len(breakfast_rules) > 0:
+            print(f"☕ BREAKFAST SHOPPERS: {len(breakfast_rules)} breakfast-related patterns")
+            print(f"   → Customers who buy breakfast items show specific additional preferences")
+
+        # Health-conscious patterns
+        health_rules = self.rules[
+            self.rules.apply(lambda x: any('fruit' in str(item).lower() or
+                                           'vegetable' in str(item).lower() or
+                                           'yogurt' in str(item).lower()
+                                           for item in list(x['antecedents']) + list(x['consequents'])), axis=1)
+        ]
+
+        if len(health_rules) > 0:
+            print(f"🥗 HEALTH-CONSCIOUS SHOPPERS: {len(health_rules)} health-related patterns")
+            print(f"   → Customers buying healthy items have distinct purchasing behaviors")
+
+        print(f"\n✅ TASK 3 COMPLETED: Successfully analyzed customer purchasing habits and preferences")
+        print(f"📈 KEY FINDINGS SUMMARY:")
+        print(f"   • {len(complementary_patterns)} complementary shopping patterns identified")
+        print(f"   • {len(substitute_patterns)} substitute choice patterns found")
+        print(f"   • {len(behavior_insights)} significant behavior patterns analyzed")
+        print(f"   • Customer segmentation insights derived from purchase associations")
+
+        return True
+
+    def generate_recommendations(self):
+
+        print("\n" + "=" * 80)
+        print("TASK 4: BUSINESS RECOMMENDATIONS - ACTIONABLE STRATEGIES")
+        print("=" * 80)
+        print("📋 OBJECTIVE: Provide actionable business recommendations based on analysis")
+        print("🎯 FOCUS: Convert market basket insights into practical business strategies")
+
+        if self.rules is None:
+            print("❌ Please run generate_association_rules() first")
+            return False
+
+        print(f"✅ GENERATING RECOMMENDATIONS from {len(self.rules)} association rules...")
+
+        # Strategic recommendation categories
+        recommendations = []
+
+        # 1. CROSS-SELLING OPPORTUNITIES
+        high_confidence = self.rules[self.rules['confidence'] > 0.4]
+        if len(high_confidence) > 0:
+            recommendations.append({
+                'category': '🎯 CROSS-SELLING OPPORTUNITIES',
+                'description': 'Leverage strong associations to increase basket size',
+                'rules': high_confidence.head(8),
+                'priority': 'HIGH'
+            })
+
+        # 2. PROMOTIONAL STRATEGIES
+        high_lift = self.rules[self.rules['lift'] > 2.0]
+        if len(high_lift) > 0:
+            recommendations.append({
+                'category': '🎉 PROMOTIONAL STRATEGIES',
+                'description': 'Create targeted promotions based on strong item associations',
+                'rules': high_lift.head(8),
+                'priority': 'HIGH'
+            })
+
+        # 3. INVENTORY MANAGEMENT
+        high_support = self.rules[self.rules['support'] > 0.05]
+        if len(high_support) > 0:
+            recommendations.append({
+                'category': '📦 INVENTORY MANAGEMENT',
+                'description': 'Optimize stock levels for frequently bought together items',
+                'rules': high_support.head(8),
+                'priority': 'MEDIUM'
+            })
+
+        # 4. STORE LAYOUT OPTIMIZATION
+        layout_rules = self.rules[(self.rules['lift'] > 1.5) & (self.rules['confidence'] > 0.3)]
+        if len(layout_rules) > 0:
+            recommendations.append({
+                'category': '🏪 STORE LAYOUT OPTIMIZATION',
+                'description': 'Arrange products based on purchase associations',
+                'rules': layout_rules.head(6),
+                'priority': 'MEDIUM'
+            })
+
+        print(f"\n📊 RECOMMENDATION CATEGORIES GENERATED: {len(recommendations)}")
+        print("=" * 80)
+
+        # Display detailed recommendations
+        for i, rec in enumerate(recommendations, 1):
+            print(f"\n{i}. {rec['category']} (Priority: {rec['priority']})")
+            print(f"   💡 STRATEGY: {rec['description']}")
+            print(f"   📈 EVIDENCE: Based on {len(rec['rules'])} association rules")
+            print("   🔑 SPECIFIC RECOMMENDATIONS:")
+
+            for j, (idx, rule) in enumerate(rec['rules'].iterrows(), 1):
+                ant = ', '.join(list(rule['antecedents']))
+                cons = ', '.join(list(rule['consequents']))
+
+                print(f"\n      Recommendation {i}.{j}:")
+                print(f"      📌 Target: Customers who buy [{ant}]")
+                print(f"      🎯 Action: Promote/suggest [{cons}]")
+                print(f"      📊 Expected Success: {rule['confidence'] * 100:.1f}% confidence")
+                print(f"      🚀 Impact: {rule['lift']:.2f}x more effective than random")
+                print(f"      💰 Market Size: {rule['support'] * 100:.2f}% of customers")
+
+                # Specific tactical recommendations
+                if rec['category'].startswith('🎯'):  # Cross-selling
+                    print(f"      💼 TACTICS:")
+                    print(f"         • Bundle {ant} with {cons} at checkout")
+                    print(f"         • Train staff to suggest {cons} when {ant} is purchased")
+                    print(f"         • Create 'frequently bought together' displays")
+
+                elif rec['category'].startswith('🎉'):  # Promotions
+                    print(f"      💼 TACTICS:")
+                    print(f"         • Offer discount on {cons} when buying {ant}")
+                    print(f"         • Create combo deals: {ant} + {cons}")
+                    print(f"         • Send targeted coupons for {cons} to {ant} buyers")
+
+                elif rec['category'].startswith('📦'):  # Inventory
+                    print(f"      💼 TACTICS:")
+                    print(f"         • Synchronize stock levels of {ant} and {cons}")
+                    print(f"         • Ensure both items are always available together")
+                    print(f"         • Adjust reorder points based on association strength")
+
+                elif rec['category'].startswith('🏪'):  # Layout
+                    print(f"      💼 TACTICS:")
+                    print(f"         • Place {ant} and {cons} in adjacent aisles")
+                    print(f"         • Create end-cap displays featuring both items")
+                    print(f"         • Use shelf placement to encourage joint purchases")
+
+        # ADDITIONAL STRATEGIC RECOMMENDATIONS
+        print(f"\n{len(recommendations) + 1}. 🎪 ADVANCED MARKETING STRATEGIES:")
+        print("   💡 STRATEGY: Implement data-driven marketing campaigns")
+        print("   🔑 SPECIFIC RECOMMENDATIONS:")
+
+        # Email marketing
+        print(f"\n      {len(recommendations) + 1}.1 PERSONALIZED EMAIL CAMPAIGNS:")
+        top_rules = self.rules.head(5)
+        for idx, rule in top_rules.iterrows():
+            ant = ', '.join(list(rule['antecedents']))
+            cons = ', '.join(list(rule['consequents']))
+            print(f"         • Email customers who bought {ant}: 'You might also like {cons}'")
+            print(f"           Success rate: {rule['confidence'] * 100:.1f}%")
+
+        # Loyalty programs
+        print(f"\n      {len(recommendations) + 1}.2 LOYALTY PROGRAM OPTIMIZATION:")
+        print(f"         • Reward points for purchasing associated items together")
+        print(f"         • Create tier benefits based on basket completion patterns")
+        print(f"         • Offer exclusive access to complementary product launches")
+
+        # Digital recommendations
+        print(f"\n      {len(recommendations) + 1}.3 DIGITAL RECOMMENDATION ENGINE:")
+        print(f"         • Implement 'Customers who bought X also bought Y' on website")
+        print(f"         • Mobile app push notifications for complementary items")
+        print(f"         • AI-powered shopping list suggestions")
+
+        print(f"\n{len(recommendations) + 2}. 📱 TECHNOLOGY IMPLEMENTATION:")
+        print("   💡 STRATEGY: Leverage technology for automatic recommendations")
+        print("   🔑 SPECIFIC RECOMMENDATIONS:")
+        print("      • Point-of-sale system integration for real-time suggestions")
+        print("      • Mobile app with AI-powered shopping assistant")
+        print("      • Smart shopping cart technology")
+        print("      • Beacon technology for location-based promotions")
+
+        print(f"\n{len(recommendations) + 3}. 📈 PERFORMANCE MONITORING:")
+        print("   💡 STRATEGY: Measure and optimize recommendation effectiveness")
+        print("   🔑 SPECIFIC RECOMMENDATIONS:")
+        print("      • Track basket size increase after implementing recommendations")
+        print("      • Monitor cross-selling success rates")
+        print("      • A/B test different promotional strategies")
+        print("      • Regular market basket analysis updates (monthly/quarterly)")
+
+        # ROI PROJECTIONS
+        print(f"\n💰 EXPECTED RETURN ON INVESTMENT (ROI) PROJECTIONS:")
+        print("=" * 60)
+
+        # Calculate potential impact
+        total_transactions = len(self.transactions)
+        avg_basket_value = 50  # Assumed average basket value
+
+        print(f"📊 IMPACT CALCULATIONS (Based on {total_transactions:,} transactions):")
+
+        # Cross-selling impact
+        if len(high_confidence) > 0:
+            cross_sell_potential = high_confidence['support'].sum() * total_transactions
+            revenue_increase = cross_sell_potential * avg_basket_value * 0.2  # 20% basket increase
+            print(f"   🎯 Cross-selling: Potential {cross_sell_potential:.0f} additional sales")
+            print(f"      Estimated revenue increase: ${revenue_increase:,.2f}")
+
+        # Promotional impact
+        if len(high_lift) > 0:
+            promo_reach = high_lift['support'].mean() * total_transactions
+            promo_revenue = promo_reach * avg_basket_value * 0.15  # 15% increase from promotions
+            print(f"   🎉 Promotions: Reach {promo_reach:.0f} customers per campaign")
+            print(f"      Estimated campaign revenue: ${promo_revenue:,.2f}")
+
+        # Final summary
+        print(f"\n✅ TASK 4 COMPLETED: Generated comprehensive business recommendations")
+        print(f"📋 RECOMMENDATIONS SUMMARY:")
+        print(f"   • {len(recommendations)} major strategy categories")
+        print(f"   • {sum(len(r['rules']) for r in recommendations)} specific action items")
+        print(f"   • Technology implementation roadmap provided")
+        print(f"   • ROI projections and performance monitoring framework included")
+        print(f"   • All recommendations based on data-driven market basket insights")
+
+        return True
+
+    def export_results(self):
+        """Export analysis results to CSV files"""
+        output_dir = os.path.dirname(self.data_path)
+
+        try:
+            if self.frequent_itemsets is not None:
+                # Prepare frequent itemsets for export
+                frequent_export = self.frequent_itemsets.copy()
+                frequent_export['itemsets'] = frequent_export['itemsets'].apply(
+                    lambda x: ', '.join(list(x))
+                )
+                output_path = os.path.join(output_dir, 'frequent_itemsets_results.csv')
+                frequent_export.to_csv(output_path, index=False)
+                print(f"✓ Frequent itemsets exported to '{output_path}'")
+
+            if self.rules is not None:
+                # Prepare rules for export
+                rules_export = self.rules.copy()
+                rules_export['antecedents'] = rules_export['antecedents'].apply(
+                    lambda x: ', '.join(list(x))
+                )
+                rules_export['consequents'] = rules_export['consequents'].apply(
+                    lambda x: ', '.join(list(x))
+                )
+                output_path = os.path.join(output_dir, 'association_rules_results.csv')
+                rules_export.to_csv(output_path, index=False)
+                print(f"✓ Association rules exported to '{output_path}'")
+
+            # Export summary statistics
+            if self.transactions:
+                summary_data = {
+                    'Metric': [
+                        'Total Transactions',
+                        'Total Unique Items',
+                        'Average Items per Transaction',
+                        'Frequent Itemsets Found',
+                        'Association Rules Generated',
+                        'High Confidence Rules (>40%)',
+                        'High Lift Rules (>2.0)'
+                    ],
+                    'Value': [
+                        len(self.transactions),
+                        len(self.df_encoded.columns) if self.df_encoded is not None else 0,
+                        np.mean([len(t) for t in self.transactions]),
+                        len(self.frequent_itemsets) if self.frequent_itemsets is not None else 0,
+                        len(self.rules) if self.rules is not None else 0,
+                        len(self.rules[self.rules['confidence'] > 0.4]) if self.rules is not None else 0,
+                        len(self.rules[self.rules['lift'] > 2.0]) if self.rules is not None else 0
+                    ]
+                }
+                summary_df = pd.DataFrame(summary_data)
+                output_path = os.path.join(output_dir, 'analysis_summary.csv')
+                summary_df.to_csv(output_path, index=False)
+                print(f"✓ Analysis summary exported to '{output_path}'")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Error exporting results: {e}")
+            return False
+
+    def print_final_summary(self):
+        """Print comprehensive analysis summary"""
+        print("\n" + "=" * 60)
+        print("📊 FINAL ANALYSIS SUMMARY")
+        print("=" * 60)
+
+        if self.transactions:
+            print(f"📋 Total transactions analyzed: {len(self.transactions):,}")
+            print(f"📦 Unique items in dataset: {len(self.df_encoded.columns) if self.df_encoded is not None else 0}")
+            print(f"📈 Average items per transaction: {np.mean([len(t) for t in self.transactions]):.2f}")
+
+        if self.frequent_itemsets is not None:
+            print(f"🔍 Frequent itemsets discovered: {len(self.frequent_itemsets)}")
+
+        if self.rules is not None:
+            print(f"📏 Association rules generated: {len(self.rules)}")
+            print(f"🎯 High confidence rules (>40%): {len(self.rules[self.rules['confidence'] > 0.4])}")
+            print(f"🚀 High lift rules (>2.0): {len(self.rules[self.rules['lift'] > 2.0])}")
+
+            # Best rule
+            best_rule = self.rules.iloc[0]
+            ant = ', '.join(list(best_rule['antecedents']))
+            cons = ', '.join(list(best_rule['consequents']))
+            print(f"\n🏆 Best Rule: {ant} → {cons}")
+            print(f"   Confidence: {best_rule['confidence'] * 100:.1f}%, Lift: {best_rule['lift']:.2f}")
+
+        print(f"\n📁 Results saved to: {os.path.dirname(self.data_path)}")
+        print("\n✅ Market Basket Analysis Complete!")
+
+    def run_complete_analysis(self, min_support=0.01, min_confidence=0.1,
+                              create_visualizations=True, export_results=True):
+        """
+        Run the complete market basket analysis pipeline covering all 4 quiz tasks
+
+        Parameters:
+        - min_support: Minimum support threshold for frequent itemsets
+        - min_confidence: Minimum confidence threshold for association rules
+        - create_visualizations: Whether to create and save plots
+        - export_results: Whether to export results to CSV files
+        """
+        print("🛒 MARKET BASKET ANALYSIS - GROCERY STORE DATA")
+        print("=" * 80)
+        print("Course: MSDA9223 - Data Mining and Information Retrieval")
+        print("Assignment: Application of Market Basket Analysis using Association Rules")
+        print("=" * 80)
+
+        # Quiz Task Overview
+        print("📋 QUIZ TASK REQUIREMENTS:")
+        print("   Task 1: Use Association to discover patterns (frequent itemsets)")
+        print("   Task 2: Generate association rules ('if A, then B' format)")
+        print("   Task 3: Understanding customer behavior and preferences")
+        print("   Task 4: Draw actionable business recommendations")
+        print("=" * 80)
+
+        # Step 0: Data loading and preprocessing
+        print("\n🔄 STEP 0: DATA LOADING AND PREPROCESSING")
+        if not self.load_grocery_data():
+            print("❌ ANALYSIS FAILED: Cannot proceed without data")
+            return False
+
+        # Basic data overview
+        if not self.analyze_data_overview():
+            print("❌ ANALYSIS FAILED: Cannot analyze data overview")
+            return False
+
+        # Create initial visualizations
+        if create_visualizations:
+            print("\n📊 Creating data overview visualizations...")
+            self.visualize_top_items()
+
+        # TASK 1: Pattern Discovery
+        print("\n" + "🔍 EXECUTING TASK 1...")
+        if not self.find_frequent_itemsets(min_support=min_support):
+            print("❌ TASK 1 FAILED: Cannot find frequent itemsets")
+            return False
+
+        # TASK 2: Rule Generation
+        print("\n" + "⚡ EXECUTING TASK 2...")
+        if not self.generate_association_rules(min_threshold=min_confidence):
+            print("❌ TASK 2 FAILED: Cannot generate association rules")
+            return False
+
+        # Create rule visualizations
+        if create_visualizations:
+            print("\n📊 Creating association rules visualizations...")
+            self.visualize_association_rules()
+
+        # TASK 3: Customer Behavior Analysis
+        print("\n" + "👥 EXECUTING TASK 3...")
+        if not self.analyze_customer_behavior():
+            print("❌ TASK 3 FAILED: Cannot analyze customer behavior")
+            return False
+
+        # TASK 4: Business Recommendations
+        print("\n" + "💼 EXECUTING TASK 4...")
+        if not self.generate_recommendations():
+            print("❌ TASK 4 FAILED: Cannot generate recommendations")
+            return False
+
+        # Export results
+        if export_results:
+            print("\n💾 EXPORTING ANALYSIS RESULTS...")
+            self.export_results()
+
+        # Final summary with task completion status
+        self.print_final_summary()
+
+        print("\n" + "=" * 80)
+        print("✅ ALL QUIZ TASKS COMPLETED SUCCESSFULLY")
+        print("=" * 80)
+        print("📋 TASK COMPLETION STATUS:")
+        print("   ✅ Task 1: Pattern Discovery - COMPLETED")
+        print("   ✅ Task 2: Association Rules Generation - COMPLETED")
+        print("   ✅ Task 3: Customer Behavior Analysis - COMPLETED")
+        print("   ✅ Task 4: Business Recommendations - COMPLETED")
+        print("=" * 80)
+
+        return True
 
 
 def main():
-    """
-    Main function to run complete Grocery Store Market Basket Analysis
-    """
-    print("=" * 80)
-    print("🛒 GROCERY STORE MARKET BASKET ANALYSIS")
-    print("Complete Association Rules Implementation")
-    print("=" * 80)
+    print("🎓 DATA MINING COURSE - MARKET BASKET ANALYSIS QUIZ")
+    print("=" * 60)
+    print("Student: [100902 Faustin Mbarute]")
+    print("Course: MSDA9223 - Data Mining and Information Retrieval")
+    print("Instructor: Dr. Pacifique Nizeyimana")
+    print("Assignment: Application of Market Basket Analysis using Association Rules")
+    print("=" * 60)
 
-    # Initialize analyzer
-    analyzer = GroceryStoreMarketBasketAnalyzer()
+    # Configuration parameters
+    DATA_PATH = '/home/nkubito/Data_Minig_Course/Data/groceries.csv'
+    MIN_SUPPORT = 0.01
+    MIN_CONFIDENCE = 0.1
 
-    # Load grocery store data
-    print("\n1. 📁 LOADING GROCERY STORE DATA...")
-    transactions = analyzer.load_grocery_data()
+    if len(sys.argv) > 1:
+        try:
+            MIN_SUPPORT = float(sys.argv[1])
+            print(f"📊 Using custom minimum support: {MIN_SUPPORT}")
+        except ValueError:
+            print("⚠️ Invalid support value provided, using default: 0.01")
 
-    if transactions is None:
-        print("❌ Failed to load data. Please check the file path.")
-        return
+    if len(sys.argv) > 2:
+        try:
+            MIN_CONFIDENCE = float(sys.argv[2])
+            print(f"📊 Using custom minimum confidence: {MIN_CONFIDENCE}")
+        except ValueError:
+            print("⚠️ Invalid confidence value provided, using default: 0.1")
 
-    # Analyze item frequencies
-    print("\n2. 📊 ANALYZING ITEM FREQUENCIES...")
-    analyzer.analyze_item_frequencies()
+    print(f"\n🔧 ANALYSIS PARAMETERS:")
+    print(f"   Dataset: {DATA_PATH}")
+    print(f"   Minimum Support: {MIN_SUPPORT}")
+    print(f"   Minimum Confidence: {MIN_CONFIDENCE}")
 
-    # Find frequent itemsets
-    print("\n3. 🔍 FINDING FREQUENT ITEMSETS...")
-    analyzer.find_frequent_itemsets(min_support=0.1)  # 10% minimum support
+    analyzer = MarketBasketAnalyzer(data_path=DATA_PATH)
 
-    # Generate association rules
-    print("\n4. 🔗 GENERATING ASSOCIATION RULES...")
-    analyzer.generate_association_rules(min_confidence=0.5)  # 50% minimum confidence
+    success = analyzer.run_complete_analysis(
+        min_support=MIN_SUPPORT,
+        min_confidence=MIN_CONFIDENCE,
+        create_visualizations=True,
+        export_results=True
+    )
 
-    # Analyze rules
-    print("\n5. 📈 ANALYZING ASSOCIATION RULES...")
-    analyzer.analyze_association_rules(top_n=10)
+    if success:
+        print("\n🎉 QUIZ SUBMISSION READY!")
+        print("=" * 60)
+        print("📚 ALL QUIZ REQUIREMENTS FULFILLED:")
+        print("✅ Task 1: Association rules used to discover patterns and frequent itemsets")
+        print("   → Identified frequent itemsets using Apriori algorithm")
+        print("   → Discovered associations between different grocery items")
+        print("   → Pattern analysis by itemset size (1-itemsets, 2-itemsets, etc.)")
 
-    # Generate business insights
-    print("\n6. 💡 GENERATING BUSINESS INSIGHTS...")
-    analyzer.generate_business_insights()
+        print("\n✅ Task 2: Generated association rules describing item relationships")
+        print("   → Created 'if A, then B' format rules with confidence metrics")
+        print("   → Rules indicate combinations of items often purchased together")
+        print("   → Detailed interpretation of rule metrics (support, confidence, lift)")
 
-    # Create visualizations
-    print("\n7. 📊 CREATING VISUALIZATIONS...")
-    analyzer.create_visualizations()
+        print("\n✅ Task 3: Understanding customer behavior and purchasing preferences")
+        print("   → Analyzed customer purchasing habits and patterns")
+        print("   → Identified complementary and substitute product relationships")
+        print("   → Customer segmentation insights derived from purchase associations")
 
-    print("\n" + "=" * 80)
-    print("✅ GROCERY STORE MARKET BASKET ANALYSIS COMPLETE!")
-    print("🎯 Check the insights above for actionable business recommendations")
-    print("=" * 80)
+        print("\n✅ Task 4: Drew comprehensive business recommendations")
+        print("   → Cross-selling and promotional strategies")
+        print("   → Inventory management and store layout optimization")
+        print("   → Technology implementation and ROI projections")
+
+        print(f"\n📁 Output files generated in: {os.path.dirname(DATA_PATH)}")
+        print("   • frequent_itemsets_results.csv")
+        print("   • association_rules_results.csv")
+        print("   • analysis_summary.csv")
+        print("   • top_items_frequency.png")
+        print("   • association_rules_analysis.png")
+
+        print("\n🏆 ASSIGNMENT COMPLETE - READY FOR SUBMISSION!")
+
+    else:
+        print("\n❌ ANALYSIS FAILED")
+        print("Please check the error messages above and ensure:")
+        print("• The groceries.csv file exists at the specified path")
+        print("• All required Python packages are installed")
+        print("• You have sufficient permissions to read/write files")
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())
