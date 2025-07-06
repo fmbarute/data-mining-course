@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>An Introduction to Statistical Learning with Applications in Python</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a0ca3;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --success: #4cc9f0;
+            --warning: #f72585;
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-heading: 'Montserrat', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            line-height: 1.6;
+            color: var(--dark);
+            background: var(--light);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary));
+            color: white;
+            padding: 30px 20px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .sidebar h2 {
+            color: white;
+            margin-bottom: 30px;
+            font-size: 1.5em;
+            font-family: var(--font-heading);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar h2 i {
+            margin-right: 10px;
+            color: var(--accent);
+        }
+
+        .sidebar-nav {
+            list-style: none;
+        }
+
+        .sidebar-nav li {
+            margin-bottom: 5px;
+        }
+
+        .sidebar-nav a {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        .sidebar-nav a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .sidebar-nav a i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 40px;
+            background: var(--light);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 15px;
+            padding: 50px 40px;
+            margin-bottom: 40px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: -80px;
+            left: -30px;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        h1 {
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            font-weight: 700;
+            font-family: var(--font-heading);
+            position: relative;
+            z-index: 1;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .authors {
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.8);
+            position: relative;
+            z-index: 1;
+        }
+
+        .overview {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            border-left: 5px solid var(--accent);
+        }
+
+        .overview h2 {
+            color: var(--primary-dark);
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            font-family: var(--font-heading);
+            display: flex;
+            align-items: center;
+        }
+
+        .overview h2 i {
+            margin-right: 15px;
+            color: var(--accent);
+        }
+
+        .toc {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .toc h2 {
+            color: var(--primary-dark);
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            font-family: var(--font-heading);
+            display: flex;
+            align-items: center;
+        }
+
+        .toc h2 i {
+            margin-right: 15px;
+            color: var(--accent);
+        }
+
+        .toc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .toc-item {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .toc-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .chapter {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .chapter:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .chapter h3 {
+            color: var(--primary-dark);
+            font-size: 1.6em;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid var(--light-gray);
+            font-family: var(--font-heading);
+            display: flex;
+            align-items: center;
+        }
+
+        .chapter h3 i {
+            margin-right: 15px;
+            color: var(--accent);
+        }
+
+        .key-points {
+            background: #e8f5e8;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #27ae60;
+        }
+
+        .techniques {
+            background: var(--light);
+            border-left: 4px solid var(--accent);
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .key-points h4, .techniques h4 {
+            color: var(--primary-dark);
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-family: var(--font-heading);
+            display: flex;
+            align-items: center;
+        }
+
+        .key-points h4 i, .techniques h4 i {
+            margin-right: 10px;
+        }
+
+        .key-points ul, .techniques ul {
+            color: var(--dark);
+            padding-left: 20px;
+        }
+
+        .key-points li, .techniques li {
+            margin-bottom: 10px;
+            position: relative;
+            padding-left: 15px;
+        }
+
+        .key-points li::before {
+            content: '•';
+            color: #27ae60;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .techniques li::before {
+            content: '•';
+            color: var(--accent);
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            background: var(--primary);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(67, 97, 238, 0.2);
+        }
+
+        .github-link:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .github-link i {
+            margin-right: 10px;
+        }
+
+        .algorithms-summary {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .algorithms-summary h2 {
+            color: var(--primary-dark);
+            margin-bottom: 30px;
+            font-size: 1.8em;
+            text-align: center;
+            font-family: var(--font-heading);
+            position: relative;
+            padding-bottom: 15px;
+        }
+
+        .algorithms-summary h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 3px;
+            background: var(--accent);
+        }
+
+        .algorithms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .algorithm-category {
+            background: var(--light);
+            border: 1px solid var(--light-gray);
+            padding: 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            transition: transform 0.3s ease;
+        }
+
+        .algorithm-category:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .algorithm-category h4 {
+            color: var(--primary-dark);
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--light-gray);
+            font-family: var(--font-heading);
+            display: flex;
+            align-items: center;
+        }
+
+        .algorithm-category h4 i {
+            margin-right: 10px;
+            color: var(--accent);
+        }
+
+        .algorithm-category ul {
+            color: var(--dark);
+            padding-left: 20px;
+        }
+
+        .algorithm-category li {
+            margin-bottom: 10px;
+            position: relative;
+            padding-left: 15px;
+        }
+
+        .algorithm-category li::before {
+            content: '▹';
+            color: var(--accent);
+            position: absolute;
+            left: 0;
+        }
+
+        footer {
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary));
+            color: white;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(67, 97, 238, 0.2);
+        }
+
+        footer h3 {
+            color: white;
+            margin-bottom: 25px;
+            font-family: var(--font-heading);
+            font-size: 1.5em;
+        }
+
+        footer p {
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-weight: 500;
+        }
+
+        footer a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .footer-divider {
+            margin: 25px auto;
+            width: 100px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .highlight {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 250px;
+            }
+
+            .main-content {
+                margin-left: 250px;
+                padding: 30px;
+            }
+
+            .algorithm-category ul {
+                columns: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 20px;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 25px;
+            }
+
+            .container {
+                padding: 0;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            header {
+                padding: 30px 20px;
+            }
+
+            .overview, .chapter, .algorithms-summary, .toc {
+                padding: 30px;
+            }
+
+            .toc-grid, .algorithms-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header {
+                padding: 25px 15px;
+            }
+
+            .overview, .chapter, .algorithms-summary, .toc {
+                padding: 25px 20px;
+            }
+
+            .github-link {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chapter {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        .chapter:nth-child(1) { animation-delay: 0.1s; }
+        .chapter:nth-child(2) { animation-delay: 0.2s; }
+        .chapter:nth-child(3) { animation-delay: 0.3s; }
+        .chapter:nth-child(4) { animation-delay: 0.4s; }
+        .chapter:nth-child(5) { animation-delay: 0.5s; }
+        .chapter:nth-child(6) { animation-delay: 0.6s; }
+        .chapter:nth-child(7) { animation-delay: 0.7s; }
+        .chapter:nth-child(8) { animation-delay: 0.8s; }
+        .chapter:nth-child(9) { animation-delay: 0.9s; }
+        .chapter:nth-child(10) { animation-delay: 1s; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <h2><i class="fas fa-book-open"></i>Table of Contents</h2>
+        <ul class="sidebar-nav">
+            <li><a href="#overview"><i class="fas fa-eye"></i>Overview</a></li>
+            <li><a href="#ch1"><i class="fas fa-chart-line"></i>1. Introduction</a></li>
+            <li><a href="#ch2"><i class="fas fa-project-diagram"></i>2. Linear Regression</a></li>
+            <li><a href="#ch3"><i class="fas fa-filter"></i>3. Classification</a></li>
+            <li><a href="#ch4"><i class="fas fa-retweet"></i>4. Resampling Methods</a></li>
+            <li><a href="#ch5"><i class="fas fa-sliders-h"></i>5. Model Selection</a></li>
+            <li><a href="#ch6"><i class="fas fa-tree"></i>6. Tree-based Methods</a></li>
+            <li><a href="#ch7"><i class="fas fa-vector-square"></i>7. Support Vector Machine</a></li>
+            <li><a href="#ch8"><i class="fas fa-brain"></i>8. Deep Learning</a></li>
+            <li><a href="#ch9"><i class="fas fa-database"></i>9. Unsupervised Learning</a></li>
+            <li><a href="#ch10"><i class="fas fa-font"></i>10. Text Mining</a></li>
+            <li><a href="#algorithms"><i class="fas fa-algorithm"></i>Algorithms Summary</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="container">
+            <header>
+                <h1>An Introduction to Statistical Learning</h1>
+                <p class="subtitle">with Applications in Python</p>
+                <p class="authors">by Gareth James, Daniela Witten, Trevor Hastie, Robert Tibshirani, and Jonathan Taylor</p>
+            </header>
+
+            <section class="overview" id="overview">
+                <h2><i class="fas fa-book"></i>Book Overview</h2>
+                <p>
+                    <strong>"An Introduction to Statistical Learning with Applications in Python"</strong> is a comprehensive guide to statistical learning methods designed for advanced undergraduates and master's students. This book provides a practical approach to understanding and implementing machine learning algorithms using Python. It covers fundamental concepts like supervised and unsupervised learning, model selection, and validation techniques. The book emphasizes hands-on learning through Python labs and real-world applications, making complex statistical concepts accessible to students without extensive mathematical backgrounds. Each chapter builds upon previous concepts, creating a cohesive learning experience that bridges theory and practice in the field of data science and machine learning.
+                </p>
+            </section>
+
+            <section class="toc">
+                <h2><i class="fas fa-list-ol"></i>Table of Contents - Chapters Covered</h2>
+                <div class="toc-grid">
+                    <div class="toc-item">
+                        <strong>Chapter 1:</strong> Introduction
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 2:</strong> Linear Regression
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 3:</strong> Classification
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 4:</strong> Resampling Methods
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 5:</strong> Linear Model Selection and Regularization
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 6:</strong> Tree-Based Methods
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 7:</strong> Support Vector Machines
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 8:</strong> Deep Learning
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 9:</strong> Unsupervised Learning
+                    </div>
+                    <div class="toc-item">
+                        <strong>Chapter 10:</strong> Text Mining
+                    </div>
+                </div>
+            </section>
+
+            <main>
+                <article class="chapter" id="ch1">
+                    <h3><i class="fas fa-chart-line"></i>Chapter 1: Introduction</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Overview of statistical learning and its applications</li>
+                            <li>Distinction between supervised and unsupervised learning</li>
+                            <li>Introduction to prediction vs. inference problems</li>
+                            <li>Understanding the role of statistical learning in data science</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li>Problem formulation frameworks</li>
+                            <li>Data exploration fundamentals</li>
+                            <li>Statistical learning workflow</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> This chapter establishes the foundation for understanding when and how to apply statistical learning methods to real-world problems.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day1_Statistical%20Learning" class="github-link"><i class="fab fa-github"></i>View Chapter 1 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch2">
+                    <h3><i class="fas fa-project-diagram"></i>Chapter 2: Linear Regression</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Simple and multiple linear regression</li>
+                            <li>Least squares estimation</li>
+                            <li>R-squared and adjusted R-squared</li>
+                            <li>Hypothesis testing for coefficients</li>
+                            <li>Confidence and prediction intervals</li>
+                            <li>Qualitative predictors and interaction terms</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">Ordinary Least Squares (OLS)</span></li>
+                            <li><span class="highlight">Polynomial regression</span></li>
+                            <li><span class="highlight">Interaction modeling</span></li>
+                            <li><span class="highlight">Residual analysis and diagnostics</span></li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Linear regression serves as the foundation for understanding many advanced techniques and provides powerful tools for both prediction and inference.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day2_Linear_Regression" class="github-link"><i class="fab fa-github"></i>View Chapter 2 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch3">
+                    <h3><i class="fas fa-filter"></i>Chapter 3: Classification</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Logistic regression and odds ratios</li>
+                            <li>Linear and Quadratic Discriminant Analysis</li>
+                            <li>Naive Bayes classifier</li>
+                            <li>Classification error rates</li>
+                            <li>ROC curves and AUC</li>
+                            <li>Multinomial classification</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">Logistic Regression</span></li>
+                            <li><span class="highlight">Linear Discriminant Analysis (LDA)</span></li>
+                            <li><span class="highlight">Quadratic Discriminant Analysis (QDA)</span></li>
+                            <li><span class="highlight">Naive Bayes</span></li>
+                            <li>K-Nearest Neighbors for classification</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Classification methods provide powerful tools for categorical prediction problems, each with different assumptions about data structure.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day3_Classification" class="github-link"><i class="fab fa-github"></i>View Chapter 3 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch4">
+                    <h3><i class="fas fa-retweet"></i>Chapter 4: Resampling Methods</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Cross-validation techniques</li>
+                            <li>Bootstrap methods</li>
+                            <li>Model selection and assessment</li>
+                            <li>Bias-variance trade-off in model selection</li>
+                            <li>Leave-one-out cross-validation (LOOCV)</li>
+                            <li>K-fold cross-validation</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">K-Fold Cross-Validation</span></li>
+                            <li><span class="highlight">Leave-One-Out Cross-Validation</span></li>
+                            <li><span class="highlight">Bootstrap</span></li>
+                            <li>Validation set approach</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Resampling methods are essential for honest assessment of model performance and proper model selection without overfitting.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day5_Resampling_Methods" class="github-link"><i class="fab fa-github"></i>View Chapter 4 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch5">
+                    <h3><i class="fas fa-sliders-h"></i>Chapter 5: Linear Model Selection and Regularization</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Subset selection methods</li>
+                            <li>Shrinkage methods</li>
+                            <li>Dimension reduction techniques</li>
+                            <li>Regularization parameters</li>
+                            <li>High-dimensional problems</li>
+                            <li>Feature selection vs. shrinkage</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">Ridge Regression</span></li>
+                            <li><span class="highlight">Lasso Regression</span></li>
+                            <li><span class="highlight">Elastic Net</span></li>
+                            <li><span class="highlight">Principal Components Regression (PCR)</span></li>
+                            <li><span class="highlight">Partial Least Squares (PLS)</span></li>
+                            <li>Best subset selection</li>
+                            <li>Forward and backward selection</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Regularization methods help prevent overfitting and handle high-dimensional data by penalizing model complexity.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day6_Linear_Model_Selection_Regularization" class="github-link"><i class="fab fa-github"></i>View Chapter 5 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch6">
+                    <h3><i class="fas fa-tree"></i>Chapter 6: Tree-Based Methods</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Decision tree construction</li>
+                            <li>Pruning strategies</li>
+                            <li>Ensemble methods</li>
+                            <li>Bootstrap aggregating (Bagging)</li>
+                            <li>Random forests</li>
+                            <li>Boosting algorithms</li>
+                            <li>Variable importance</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">Decision Trees</span></li>
+                            <li><span class="highlight">Random Forest</span></li>
+                            <li><span class="highlight">Bagging</span></li>
+                            <li><span class="highlight">Gradient Boosting</span></li>
+                            <li><span class="highlight">AdaBoost</span></li>
+                            <li>Bayesian Additive Regression Trees (BART)</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Tree-based methods provide highly flexible, non-parametric approaches that excel at capturing complex interactions and non-linear relationships.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day7_Decision_trees" class="github-link"><i class="fab fa-github"></i>View Chapter 6 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch7">
+                    <h3><i class="fas fa-vector-square"></i>Chapter 7: Support Vector Machines</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Maximal margin classifier</li>
+                            <li>Support vector classifiers</li>
+                            <li>Support vector machines</li>
+                            <li>Kernel functions</li>
+                            <li>Non-linear decision boundaries</li>
+                            <li>Multi-class classification</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">Support Vector Classifier</span></li>
+                            <li><span class="highlight">Support Vector Machine (SVM)</span></li>
+                            <li>Linear kernel</li>
+                            <li>Polynomial kernel</li>
+                            <li>Radial basis function (RBF) kernel</li>
+                            <li>One-vs-One and One-vs-All classification</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> SVMs provide powerful classification tools that can handle non-linear boundaries through kernel methods while maintaining good generalization properties.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day8_SVM" class="github-link"><i class="fab fa-github"></i>View Chapter 7 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch8">
+                    <h3><i class="fas fa-brain"></i>Chapter 8: Deep Learning</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Single layer neural networks</li>
+                            <li>Multilayer neural networks</li>
+                            <li>Convolutional Neural Networks (CNNs)</li>
+                            <li>Recurrent Neural Networks (RNNs)</li>
+                            <li>Backpropagation algorithm</li>
+                            <li>Regularization techniques (dropout, weight decay)</li>
+                            <li>Deep learning optimization</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">Neural Networks</span></li>
+                            <li><span class="highlight">Convolutional Neural Networks (CNN)</span></li>
+                            <li><span class="highlight">Recurrent Neural Networks (RNN)</span></li>
+                            <li>Backpropagation</li>
+                            <li>Stochastic Gradient Descent</li>
+                            <li>Dropout regularization</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Deep learning methods excel at learning complex patterns from large datasets, particularly in image recognition, text processing, and sequence modeling.</p>
+                    <a href="#" class="github-link"><i class="fab fa-github"></i>View Chapter 8 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch9">
+                    <h3><i class="fas fa-database"></i>Chapter 9: Unsupervised Learning</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Principal Component Analysis (PCA)</li>
+                            <li>Clustering methods</li>
+                            <li>Hierarchical clustering</li>
+                            <li>K-means clustering</li>
+                            <li>Matrix completion</li>
+                            <li>Dimensionality reduction</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">Principal Component Analysis (PCA)</span></li>
+                            <li><span class="highlight">K-Means Clustering</span></li>
+                            <li><span class="highlight">Hierarchical Clustering</span></li>
+                            <li>Matrix completion methods</li>
+                            <li>Missing value imputation</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Unsupervised learning reveals hidden patterns and structures in data without target variables, essential for exploratory data analysis and dimension reduction.</p>
+                    <a href="https://github.com/fmbarute/data-mining-course/tree/main/Day9_Unsupervised_Learning" class="github-link"><i class="fab fa-github"></i>View Chapter 9 Notebook</a>
+                </article>
+
+                <article class="chapter" id="ch10">
+                    <h3><i class="fas fa-font"></i>Chapter 10: Text Mining</h3>
+                    <div class="key-points">
+                        <h4><i class="fas fa-key"></i>Key Concepts</h4>
+                        <ul>
+                            <li>Text preprocessing and tokenization</li>
+                            <li>Bag-of-words and TF-IDF representations</li>
+                            <li>Document classification and sentiment analysis</li>
+                            <li>Topic modeling and document clustering</li>
+                            <li>Named Entity Recognition (NER)</li>
+                            <li>Word embeddings and semantic similarity</li>
+                            <li>Language models and text generation</li>
+                        </ul>
+                    </div>
+                    <div class="techniques">
+                        <h4><i class="fas fa-tools"></i>Main Techniques</h4>
+                        <ul>
+                            <li><span class="highlight">TF-IDF Vectorization</span></li>
+                            <li><span class="highlight">Latent Dirichlet Allocation (LDA)</span></li>
+                            <li><span class="highlight">Word2Vec and GloVe embeddings</span></li>
+                            <li><span class="highlight">LSTM for text processing</span></li>
+                            <li><span class="highlight">BERT and transformer models</span></li>
+                            <li>N-gram models</li>
+                            <li>Text classification algorithms</li>
+                            <li>Sentiment analysis techniques</li>
+                        </ul>
+                    </div>
+                    <p><strong>Takeaway:</strong> Text mining techniques enable extraction of meaningful information from unstructured text data, combining traditional NLP methods with modern deep learning approaches for comprehensive text analysis.</p>
+                    <a href="#" class="github-link"><i class="fab fa-github"></i>View Chapter 10 Notebook</a>
+                </article>
+            </main>
+
+            <section class="algorithms-summary" id="algorithms">
+                <h2><i class="fas fa-algorithm"></i>Algorithm Categories Summary</h2>
+                <div class="algorithms-grid">
+                    <div class="algorithm-category">
+                        <h4><i class="fas fa-chart-line"></i> Regression Algorithms</h4>
+                        <ul>
+                            <li><strong>Linear Regression</strong> - Simple and Multiple</li>
+                            <li><strong>Ridge Regression</strong> - L2 regularization</li>
+                            <li><strong>Lasso Regression</strong> - L1 regularization</li>
+                            <li><strong>Elastic Net</strong> - Combined L1/L2 regularization</li>
+                            <li><strong>Polynomial Regression</strong> - Non-linear relationships</li>
+                            <li><strong>PCR</strong> - Principal Components Regression</li>
+                            <li><strong>PLS</strong> - Partial Least Squares</li>
+                            <li><strong>Decision Trees</strong> - Tree-based regression</li>
+                            <li><strong>Random Forest</strong> - Ensemble regression</li>
+                            <li><strong>Neural Networks</strong> - Deep learning regression</li>
+                        </ul>
+                    </div>
+
+                    <div class="algorithm-category">
+                        <h4><i class="fas fa-bullseye"></i> Classification Algorithms</h4>
+                        <ul>
+                            <li><strong>Logistic Regression</strong> - Linear classification</li>
+                            <li><strong>LDA</strong> - Linear Discriminant Analysis</li>
+                            <li><strong>QDA</strong> - Quadratic Discriminant Analysis</li>
+                            <li><strong>Naive Bayes</strong> - Probabilistic classifier</li>
+                            <li><strong>K-Nearest Neighbors</strong> - Instance-based learning</li>
+                            <li><strong>Decision Trees</strong> - Tree-based classification</li>
+                            <li><strong>Random Forest</strong> - Ensemble classification</li>
+                            <li><strong>Gradient Boosting</strong> - Boosted trees</li>
+                            <li><strong>Support Vector Machines</strong> - Margin-based</li>
+                            <li><strong>Neural Networks</strong> - Deep learning classification</li>
+                            <li><strong>CNNs</strong> - Convolutional Neural Networks</li>
+                        </ul>
+                    </div>
+
+                    <div class="algorithm-category">
+                        <h4><i class="fas fa-search"></i> Unsupervised Learning Algorithms</h4>
+                        <ul>
+                            <li><strong>PCA</strong> - Principal Component Analysis</li>
+                            <li><strong>K-Means Clustering</strong> - Centroid-based clustering</li>
+                            <li><strong>Hierarchical Clustering</strong> - Tree-based clustering</li>
+                            <li><strong>Matrix Completion</strong> - Missing data imputation</li>
+                            <li><strong>Autoencoders</strong> - Neural network dimensionality reduction</li>
+                        </ul>
+                    </div>
+
+                    <div class="algorithm-category">
+                        <h4><i class="fas fa-font"></i> Text Mining Algorithms</h4>
+                        <ul>
+                            <li><strong>TF-IDF</strong> - Term frequency-inverse document frequency</li>
+                            <li><strong>LDA</strong> - Latent Dirichlet Allocation</li>
+                            <li><strong>Word2Vec</strong> - Word embeddings</li>
+                            <li><strong>BERT</strong> - Bidirectional encoder representations</li>
+                            <li><strong>LSTM</strong> - Long short-term memory for text</li>
+                            <li><strong>Transformer models</strong> - Attention-based models</li>
+                            <li><strong>N-gram models</strong> - Sequential text modeling</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <footer>
+                <h3>Course Resources</h3>
+                <p>
+                    <i class="fas fa-book"></i> <strong>Textbook:</strong> An Introduction to Statistical Learning with Applications in Python<br>
+                    <i class="fas fa-code"></i> <strong>GitHub Repository:</strong> <a href="https://github.com/your-username/statistical-learning-labs" target="_blank">View All Lab Notebooks</a><br>
+                    <i class="fas fa-globe"></i> <strong>Course Website:</strong> <a href="#" target="_blank">Official Course Page</a><br>
+                    <i class="fas fa-link"></i> <strong>Book Website:</strong> <a href="https://www.statlearning.com/" target="_blank">StatLearning.com</a>
+                </p>
+
+                <div class="footer-divider"></div>
+
+                <p><strong>Assignment completed for:</strong> MSDA9223 - Data Mining and Information Retrieval</p>
+                <p><strong>Instructor:</strong> Dr. Pacifique Nizeyimana | <strong>Date:</strong> July 6th, 2025</p>
+                <p><strong>Institution:</strong> Adventist University of Central Africa</p>
+            </footer>
+        </div>
+    </div>
+</body>
+</html>

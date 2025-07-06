@@ -1,0 +1,92 @@
+This question is about the Lasso regression method, where we constrain the sum of absolute coefficients (L1 penalty). Let's analyze each part systematically:
+
+Key Concepts:
+s is the L1 constraint (∑|βⱼ| ≤ s)
+
+When s=0: All βⱼ=0 (null model)
+
+As s increases: More coefficients become non-zero
+
+When s is large enough: Equivalent to OLS (unconstrained)
+
+(a) Training RSS vs. s
+Correct answer: iv. Steadily decrease
+
+Justification:
+
+At s=0 (all βⱼ=0), RSS is maximized
+
+As s increases, the model gains flexibility to fit training data better
+
+RSS decreases monotonically as constraints are relaxed
+
+When s ≥ OLS solution, RSS reaches minimum (no further decrease)
+
+(b) Test RSS vs. s
+Correct answer: ii. Decrease initially, then increase in U shape
+
+Justification:
+
+At s=0: High test RSS (underfitting)
+
+As s increases: Better fit to true relationship → test RSS decreases
+
+Beyond optimal s: Overfitting begins → test RSS increases
+
+Forms characteristic U-shape due to bias-variance tradeoff
+
+(c) Variance vs. s
+Correct answer: iii. Steadily increase
+
+Justification:
+
+At s=0: Variance is minimal (always predicts β₀)
+
+As s increases:
+
+More coefficients can take larger values
+
+Model becomes more sensitive to training data
+
+Variance increases monotonically
+
+Maximum variance at OLS solution (s ≥ OLS)
+
+(d) (Squared) Bias vs. s
+Correct answer: i. Increase initially, then decrease in inverted U
+
+Wait no - let me rethink this carefully:
+
+Actually, Correct answer: ii. Decrease initially, then increase in U shape
+
+Justification:
+
+At s=0: Maximum bias (model is just intercept)
+
+As s increases:
+
+Model can better capture true relationships → bias decreases
+
+After optimal point: Constraint is too loose → coefficients may overshoot → bias increases
+
+Forms U-shape opposite to variance
+
+(e) Irreducible Error vs. s
+Correct answer: v. Remain constant
+
+Justification:
+
+Irreducible error (σ²) is noise inherent in the data
+
+Independent of model complexity or constraints
+
+Therefore remains constant regardless of s
+
+Summary Table:
+Part	Metric	Correct Answer	Behavior
+(a)	Training RSS	iv	Steadily decreases
+(b)	Test RSS	ii	U-shape (decreases then increases)
+(c)	Variance	iii	Steadily increases
+(d)	(Squared) Bias	ii	U-shape (decreases then increases)
+(e)	Irreducible err	v	Remains constant
+This pattern matches the typical bias-variance tradeoff behavior we see in regularized regression, where the L1 constraint (s) controls model complexity similarly to how λ does in the typical Lasso formulation.
